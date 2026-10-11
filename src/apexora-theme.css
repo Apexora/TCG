@@ -10,3 +10,6 @@
 :root[data-mood="tcg"] header { border-bottom-color: rgba(213,110,111,.35); background: rgba(24,10,20,.9); }
 :root[data-mood="tcg"] h1 { font-family: var(--apx-display); font-weight: 400; letter-spacing: .06em; }
 :root[data-mood="tcg"] .btn:not(.atk-btn) { background: linear-gradient(180deg, #f1cfae, #e3b488); color: #351b16; }
+
+/* Marcador de fragmentos (apexora-hud.js): abajo a la izquierda para no tapar la barra ni la mano */
+:root[data-mood="tcg"] { --apx-hud-top: auto; --apx-hud-right: auto; --apx-hud-left: 12px; --apx-hud-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
