@@ -14,7 +14,8 @@ import { isMuted, setTension, sfx, sfxCard, toggleMute } from './ui/sound';
 import { Online } from './net/online';
 import { applyMove, toView, view, type Seat } from './net/sync';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
-import { darPremio } from './net/premio';
+import { darPremio, darPremioIA } from './net/premio';
+import { ensureUser } from './net/firebase';
 
 const app = document.getElementById('app')!;
 const pv = document.createElement('div'); pv.className = 'preview'; document.body.append(pv);
@@ -320,7 +321,7 @@ function render() {
   prev = [me.nexus, foe.nexus]; prevPlayed = s.p.map(p => p.played.length); lastRound = s.round; prevS = s;
   prevHp = new Map(); lastBoard = [[], []];
   s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); }));
-  if (s.winner !== null && !ended) { ended = true;if (online && s.winner !== -1) darPremio(online.code, s.winner === 0).catch(() => {}); if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
+  if (s.winner !== null && !ended) { ended = true;if (s.winner !== -1) (online ? darPremio(online.code, s.winner === 0) : darPremioIA(s.winner === 0)).catch(() => {}); if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
   logv.innerHTML = log; chatEl.hidden = !chatOpen;
 }
 // ---------- Acciones ----------
@@ -453,6 +454,8 @@ function startOnline() {
     onSettled: () => { if (!pumping && !queue.length && busy) { busy = false; render(); } },
   });
 }
+// Una sola cuenta: sin sesión del Portal se manda al Portal (en dev local no, para poder probar).
+if (!import.meta.env.DEV) ensureUser().catch(() => {});
 const savedRoom = Online.savedCode();
 if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
 

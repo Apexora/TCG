@@ -18,3 +18,11 @@ export async function darPremio(partida: string, gane: boolean) {
   }
   return r;   // r.comun = azules ganadas, r.rara = negras ganadas
 }
+
+// Partida contra la IA: premio chico (sin negra ni logros) para no abrir una granja de esencias.
+// El tope diario del núcleo (300 azules) igualmente aplica.
+export async function darPremioIA(gane: boolean) {
+  const r = await premiar(gane ? 8 : 2, 0);
+  if (gane) await sumarStat('tcg', 'victorias_ia');
+  return r;
+}
