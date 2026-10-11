@@ -1,6 +1,7 @@
 import './style.css';
 import './fx.css';
 import './v3.css';
+import './apexora-theme.css';
 import { hideMenu, initFx, showMenu } from './ui/fx';
 import { CARDS, DECKS } from './data/cards';
 import { aiAction } from './ai/ai';
