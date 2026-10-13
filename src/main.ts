@@ -3,6 +3,7 @@ import './fx.css';
 import './v3.css';
 import './apexora-theme.css';
 import { hideMenu, initFx, showMenu } from './ui/fx';
+import { deckCards, deckFaction, deckLabel, getDeck, otherDeck, wireDeck } from './decks';
 import { CARDS, DECKS } from './data/cards';
 import { aiAction } from './ai/ai';
 import { atkOf, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
@@ -34,7 +35,8 @@ const SPD: Record<SpellSpeed, string> = {
   fast: 'Rápido: va a la pila; el rival puede responder. Sirve como reacción.', slow: 'Lento: va a la pila; solo como acción original (con la pila vacía).',
 };
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
-const newS = () => newGame([DECKS.Luminarae, DECKS.Umbra], Date.now());
+let curDeck = getDeck(), curSig = deckCards(curDeck).join();   // mazo con el que se juega ahora (contra la IA)
+const newS = () => { curDeck = getDeck(); curSig = deckCards(curDeck).join(); return newGame([deckCards(curDeck), DECKS[otherDeck(curDeck)]], Date.now()); };
 let s: State = newS();
 let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string; fly?: boolean } | null = null, dueling = false;
 let sel = new Set<number>(), mulSel = new Set<number>(), chatOpen = false, busy = false, ended = false, gameId = 0;
@@ -44,15 +46,16 @@ const htmlCache = new Map<number, string>();
 let reading = false, drawUntil = 0, prevActive: number = -1, prevSpell = 0;
 // ---------- Online ----------
 let online: Online | null = null, ME: Seat = 0;
-const fac = (i: number) => (i + ME) % 2;                         // 0 = Luminarae, 1 = Umbra (según el asiento)
-const facName = (i: number) => (fac(i) ? 'Umbra' : 'Luminarae');
+const seatCards = (): [string[], string[]] => (online ? online.decks : [deckCards(curDeck), DECKS[otherDeck(curDeck)]]);   // mazo de cada asiento real
+const fac = (i: number) => (deckFaction(seatCards()[(i + ME) % 2]) === 'Umbra' ? 1 : 0);   // 0 = Luminarae, 1 = Umbra (según las cartas del mazo)
+const facName = (i: number) => (i === 0 ? deckLabel(curDeck) : fac(i) ? 'Umbra' : 'Luminarae');
 const react = (k: 'cast' | 'win' | 'lose') => { if (!online) chat.react(k); };  // las reacciones del chat son de la IA
 
 function vfx(cls: string, text = '') { const d = document.createElement('div'); d.className = 'vfx ' + cls; d.textContent = text; document.body.append(d); setTimeout(() => d.remove(), 1400); }
 function toast(t: string) { document.querySelectorAll('.toast').forEach(e => e.remove()); const d = document.createElement('div'); d.className = 'vfx toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 1800); }
 
 // ---------- Chat / registro ----------
-const chat = new LocalChannel();
+const chat = new LocalChannel(); chat.nameFn = () => otherDeck(curDeck);
 const chatEl = document.createElement('aside'); chatEl.className = 'chat';
 chatEl.innerHTML = `<div class="tabs"><button data-t="chat" class="on">Chat</button><button data-t="log">Registro</button></div>
   <div class="msgs" id="msgs"></div><div class="logv" id="logv" hidden></div>
@@ -255,9 +258,9 @@ function render() {
     const back: string[] = [], comb: string[] = [];
     p.board.forEach((u, i) => { if (!inCombat(u, side)) back.push(unit(u, i, side)); });
     cols.forEach(c => { const x = side === T ? c.a : c.b, xi = side === T ? c.ai : c.bi;
-      comb.push(x ? unit(x, xi, side) : `<div class="slot cslot ${side ? 'umb' : 'lum'} ${defMe && side === 0 ? 'ask' : ''}">${defMe && side === 0 ? '<span>Elige<br>defensor</span>' : ''}</div>`); });
+      comb.push(x ? unit(x, xi, side) : `<div class="slot cslot ${fac(side) ? 'umb' : 'lum'} ${defMe && side === 0 ? 'ask' : ''}">${defMe && side === 0 ? '<span>Elige<br>defensor</span>' : ''}</div>`); });
     const ghosts = lastBoard[side].filter(uid => !p.board.some(u => u.uid === uid)).map(uid => htmlCache.get(uid) ?? '');
-    const slots = Array.from({ length: Math.max(0, 6 - p.board.length) }, (_, k) => `<div class="slot ${side ? 'umb' : 'lum'}">${ghosts[k] ?? ''}</div>`).join('');
+    const slots = Array.from({ length: Math.max(0, 6 - p.board.length) }, (_, k) => `<div class="slot ${fac(side) ? 'umb' : 'lum'}">${ghosts[k] ?? ''}</div>`).join('');
     return { back: back.join('') + slots, comb: comb.join('') };
   };
   const F = lanes(foe, 1), M = lanes(me, 0);
@@ -438,10 +441,10 @@ function menuApi() {
     inRoom: !!online,
     create: async () => {
       startOnline();
-      try { const c = await online!.create(); setRoomTag(`Sala ${c} · esperando rival…`); menuStatus(`Código de sala: ${c} — pásaselo a tu rival`); }
+      try { curDeck = getDeck(); const c = await online!.create(wireDeck(curDeck)); setRoomTag(`Sala ${c} · esperando rival…`); menuStatus(`Código de sala: ${c} — pásaselo a tu rival`); }
       catch (e) { online = null; throw e; }
     },
-    join: async (code: string) => { startOnline(); try { await online!.join(code); } catch (e) { online = null; throw e; } },
+    join: async (code: string) => { startOnline(); try { curDeck = getDeck(); await online!.join(code, wireDeck(curDeck)); } catch (e) { online = null; throw e; } },
     leave: () => { online?.close(); online = null; ME = 0; queue.length = 0; pumping = false; setRoomTag(''); freshUi(newS()); loop(); },
   };
 }
@@ -461,7 +464,7 @@ const savedRoom = Online.savedCode();
 if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
 
 // Menú principal: IA u online
-document.addEventListener('menu:ia', () => { if (online) { online.close(); online = null; ME = 0; queue.length = 0; pumping = false; setRoomTag(''); closeMenu(); freshUi(newS()); loop(); } });
+document.addEventListener('menu:ia', () => { if (!online && (curDeck !== getDeck() || curSig !== deckCards(getDeck()).join())) { gameId++; freshUi(newS()); loop(); } else if (online) { online.close(); online = null; ME = 0; queue.length = 0; pumping = false; setRoomTag(''); closeMenu(); freshUi(newS()); loop(); } });
 document.addEventListener('menu:online', () => openOnlineMenu(menuApi()));
 render(); loop();
 initFx();

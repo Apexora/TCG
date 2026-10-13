@@ -11,6 +11,7 @@ const LINES: Record<string, string[]> = {
   lose: ['La noche siempre gana.', 'Tu luz se apaga.'],
 };
 export class LocalChannel implements ChatChannel {
+  nameFn: () => string = () => 'Umbra';
   private cbs: ((m: ChatMsg) => void)[] = [];
   private last = 0;
   onMessage(cb: (m: ChatMsg) => void) { this.cbs.push(cb); }
@@ -28,6 +29,6 @@ export class LocalChannel implements ChatChannel {
   }
   private say(k: string) {
     const l = LINES[k]; this.last = Date.now();
-    this.emit({ from: 'Umbra', text: l[Math.floor(Math.random() * l.length)], side: 'foe' });
+    this.emit({ from: this.nameFn(), text: l[Math.floor(Math.random() * l.length)], side: 'foe' });
   }
 }

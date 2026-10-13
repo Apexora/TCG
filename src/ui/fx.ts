@@ -1,6 +1,8 @@
 // Capa de espectáculo: pantalla de título, partículas, foil holográfico, temblor de pantalla, estela del cursor y sonido de interfaz.
 import { sfx, startMusic } from './sound';
 import { initCombatFx } from './combatfx';
+import { customDecks, esc, getDeck, setDeck } from '../decks';
+import { openDeckBuilder } from './deckbuilder';
 const css = (el: HTMLElement, k: string, v: string) => el.style.setProperty(k, v);
 
 function particles() {
@@ -62,11 +64,21 @@ export function showMenu() {
   const t = titleEl = document.createElement('div'); t.id = 'title';
   t.innerHTML = `<div class="t-bg"></div><div class="t-art l"></div><div class="t-art u"></div>
     <div class="t-in"><p class="t-kicker"><i></i>DUELO DE LEYENDAS<i></i></p><h1>CARTAS</h1><div class="t-sub"><i></i><span>ALFA</span><i></i></div>
-    <div class="t-fac"><b class="l">☀ LUMINARAE</b><i>◆</i><b class="u">UMBRA ☾</b></div>
-    <div class="t-menu"><button class="t-go" data-m="ia" autofocus>⚔ JUGAR CONTRA LA IA</button><button class="t-go alt" data-m="online">🌐 JUGAR ONLINE</button></div>
-    <p class="t-hint">Elige un modo · sonido activado</p></div>`;
+    <div class="t-fac" role="radiogroup" aria-label="Elige tu mazo"></div>
+    <div class="t-menu"><button class="t-go" data-m="ia" autofocus>⚔ JUGAR CONTRA LA IA</button><button class="t-go alt" data-m="online">🌐 JUGAR ONLINE</button><button class="t-go dk" data-m="decks">🃏 MIS MAZOS</button></div>
+    <p class="t-hint">Elige tu mazo y un modo · sonido activado</p></div>`;
   document.body.append(t);
+  const facEl = t.querySelector<HTMLElement>('.t-fac')!;
+  const paint = () => {
+    const cur = getDeck();
+    facEl.innerHTML = `<button class="l" data-d="Luminarae" role="radio">☀ LUMINARAE</button><i>◆</i><button class="u" data-d="Umbra" role="radio">UMBRA ☾</button>`
+      + customDecks().map(d => `<i>◆</i><button class="c" data-d="${d.id}" role="radio">🃏 ${esc(d.name)}</button>`).join('');
+    facEl.querySelectorAll<HTMLElement>('[data-d]').forEach(b => { const on = b.dataset.d === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  };
+  facEl.addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]'); if (!b) return; setDeck(b.dataset.d!); sfx('select'); paint(); });
+  paint();
   t.querySelectorAll<HTMLElement>('[data-m]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.m === 'decks') { sfx('click'); openDeckBuilder(paint); return; }
     sfx('start'); startMusic();
     if (b.dataset.m === 'ia') { hideMenu(); document.dispatchEvent(new Event('menu:ia')); }
     else document.dispatchEvent(new Event('menu:online'));

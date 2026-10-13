@@ -1,6 +1,8 @@
 import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db, ensureUser, isConfigured, netErr } from './firebase';
 import { allowed, applyMove, initialState, toWire, type Seat } from './sync';
+import { DECKS } from '../data/cards';
+import { parseWire } from '../decks';
 import type { Action, State } from '../engine/types';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O/1/I
@@ -18,6 +20,8 @@ export interface OnlineHandlers {
 
 export class Online {
   code = ''; seat: Seat = 0; uid = '';
+  /** Cartas del mazo de cada asiento (host, invitado), validadas igual en ambos clientes. */
+  decks: [string[], string[]] = [DECKS.Luminarae, DECKS.Umbra];
   g!: State;
   private host = ''; private guest = ''; private seed = 0;
   private applied = 0; private sending = false; private sentAt = -1; private unsubs: (() => void)[] = [];
@@ -29,7 +33,7 @@ export class Online {
   private save() { try { localStorage.setItem(KEY, this.code); } catch { /* ignorar */ } }
   static clearSaved() { try { localStorage.removeItem(KEY); } catch { /* ignorar */ } }
 
-  async create() {
+  async create(deck: string | string[] = 'Luminarae') {
     if (!isConfigured) throw new Error(netErr(null));
     try {
       const u = await ensureUser(); this.uid = u.uid; this.seat = 0;
@@ -37,14 +41,14 @@ export class Online {
       for (let tries = 0; tries < 8; tries++) {
         const code = newCode();
         if ((await getDoc(doc(db, 'tcgGames', code))).exists()) continue;
-        await setDoc(doc(db, 'tcgGames', code), { host: u.uid, guest: null, seed: this.seed, status: 'waiting', createdAt: serverTimestamp() });
+        await setDoc(doc(db, 'tcgGames', code), { host: u.uid, guest: null, hostDeck: deck, seed: this.seed, status: 'waiting', createdAt: serverTimestamp() });
         this.code = code; this.save(); this.h.onStatus(`Sala ${code}: esperando rival…`); this.listen(); return code;
       }
     } catch (e) { throw new Error(netErr(e)); }
     throw new Error('No se pudo crear la sala, inténtalo de nuevo');
   }
 
-  async join(codeRaw: string) {
+  async join(codeRaw: string, deck: string | string[] = 'Umbra') {
     if (!isConfigured) throw new Error(netErr(null));
     const code = codeRaw.trim().toUpperCase();
     if (code.length !== 4) throw new Error('El código tiene 4 caracteres');
@@ -56,7 +60,12 @@ export class Online {
       if (d.host === u.uid) this.seat = 0;
       else if (d.guest === u.uid) this.seat = 1;
       else if (d.guest) throw new Error('La sala ya está llena');
-      else { await updateDoc(ref, { guest: u.uid, status: 'playing' }); this.seat = 1; }
+      else {
+        // Si las reglas de la sala no admiten el campo guestDeck, se entra igualmente (con el mazo por defecto).
+        try { await updateDoc(ref, { guest: u.uid, guestDeck: deck, status: 'playing' }); }
+        catch { await updateDoc(ref, { guest: u.uid, status: 'playing' }); }
+        this.seat = 1;
+      }
       this.code = code; this.save(); this.listen();
     } catch (e) { throw new Error((e as Error).message?.startsWith('Esa sala') || (e as Error).message?.startsWith('La sala') ? (e as Error).message : netErr(e)); }
   }
@@ -77,8 +86,9 @@ export class Online {
     this.unsubs.push(onSnapshot(gref, s => {
       const d = s.data(); if (!d) return;
       this.host = d.host; this.guest = d.guest ?? ''; this.seed = d.seed;
+      this.decks = [parseWire(d.hostDeck, 'Luminarae'), parseWire(d.guestDeck, 'Umbra')];
       if (d.status === 'playing' && this.guest && !this.ready) {
-        this.ready = true; this.g = initialState(this.seed); this.applied = 0; this.pulled = false;
+        this.ready = true; this.g = initialState(this.seed, this.decks); this.applied = 0; this.pulled = false;
         this.h.onReady(); this.h.onStatus(`Sala ${this.code}: ¡partida en marcha!`);
         // solo se escuchan las jugadas cuando ya hay dos jugadores (así las reglas dejan leer)
         this.unsubs.push(onSnapshot(query(collection(gref, 'chat'), orderBy('t')), cs => cs.docChanges().forEach(c => {

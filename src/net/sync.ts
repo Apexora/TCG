@@ -7,8 +7,8 @@ import type { Action, State } from '../engine/types';
 export type Seat = 0 | 1;
 export interface Move { by: string; action: Action; t?: number }
 
-/** Estado inicial común: anfitrión = asiento 0 (Luminarae), invitado = asiento 1 (Umbra). */
-export const initialState = (seed: number): State => newGame([DECKS.Luminarae, DECKS.Umbra], seed);
+/** Estado inicial común: anfitrión = asiento 0, invitado = asiento 1; cada uno con el mazo que eligió (por defecto Luminarae / Umbra). */
+export const initialState = (seed: number, decks: [string[], string[]] = [DECKS.Luminarae, DECKS.Umbra]): State => newGame(decks, seed);
 
 /** Estado real → estado visto desde `me` (tú siempre eres p[0]). Solo para pintar y validar en la UI. */
 export function view(g: State, me: Seat): State {

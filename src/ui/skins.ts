@@ -11,6 +11,6 @@ export const nameOf = (id: string) => user[id]?.name || DEFAULT_SKINS[id]?.name 
 export const imageOf = (id: string) =>
   user[id]?.image ||
   DEFAULT_SKINS[id]?.image ||
-  `${import.meta.env.BASE_URL}img/${id}.webp`;
+  `${import.meta.env.BASE_URL}img/${id}.webp?v=${__IMG_V__}`;
 export const setSkin = (id: string, p: Skin) => { user[id] = { ...user[id], ...p }; save(); };
 export const resetSkins = () => { user = {}; save(); };
