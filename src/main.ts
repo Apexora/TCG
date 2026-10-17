@@ -11,6 +11,8 @@ import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/
 import { imageOf, nameOf } from './ui/skins';
 import { epicEntrance, isFlagship } from './ui/epic';
 import { clashFx, trailFx } from './ui/combatfx';
+import { gsap } from 'gsap';
+import { motionPlay, motionSnapshot } from './ui/motion';
 import { LocalChannel } from './ui/chat';
 import { isMuted, setTension, sfx, sfxCard, toggleMute } from './ui/sound';
 import { Online } from './net/online';
@@ -199,18 +201,18 @@ function playCombat(b: State, a: State, done: () => void) {
         const fl = ea.cloneNode(true) as HTMLElement; fl.classList.remove('duel', 'duelatk', 'sel', 'can', 'enter', 'atkr'); fl.removeAttribute('data-a'); fl.removeAttribute('data-uid');
         fl.style.cssText = `position:fixed;left:${A.left}px;top:${A.top}px;width:${A.width}px;height:${A.height}px;--w:${A.width}px;margin:0;z-index:80;pointer-events:none;will-change:transform;box-shadow:0 0 0 2px #ffd36e,0 12px 30px #000a,0 0 30px #ffd36eaa`;
         document.body.append(fl); duel!.fly = true;
-        const P = (ms: number) => ms / tot, T0 = 'translate(0,0) scale(1)', TC = `translate(${dx}px,${dy}px) scale(1.08)`;
-        const an = fl.animate([
-          { transform: T0, offset: 0, easing: 'cubic-bezier(.3,0,.4,1)' },
-          { transform: `translate(${wx}px,${wy}px) scale(1.05)`, offset: P(WIND), easing: 'cubic-bezier(.6,0,.25,1)' },   // ease-in-out hacia el objetivo
-          { transform: TC, offset: P(GO), easing: 'linear' },
-          { transform: TC, offset: P(GO + HOLD), easing: 'cubic-bezier(.45,0,.2,1)' },                                  // regreso ease-in-out
-          { transform: T0, offset: 1 },
-        ], { duration: tot, fill: 'forwards' });
+        // GSAP: anticipación (se agacha y retrocede) → embestida que acelera y se estira → impacto que aplasta → regreso con inercia
+        const lean = Math.max(-9, Math.min(9, dx / dist * 9));
+        const an = gsap.timeline({ onComplete: () => { fl.remove(); if (duel && duel.atk === uid) { duel.fly = false; render(); } } });
+        gsap.set(fl, { transformOrigin: '50% 50%' });
+        an.to(fl, { x: wx, y: wy, scaleX: 1.07, scaleY: .93, rotation: -lean * .5, duration: WIND / 1000, ease: 'power2.out' })
+          .to(fl, { x: dx, y: dy, scaleX: .94, scaleY: 1.12, rotation: lean, duration: DASH / 1000, ease: 'power3.in' })
+          .to(fl, { scaleX: 1.16, scaleY: .86, rotation: lean * .3, duration: HOLD / 2000, ease: 'power4.out' })
+          .to(fl, { scaleX: 1.06, scaleY: 1.06, duration: HOLD / 2000, ease: 'power2.out' })
+          .to(fl, { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, duration: BACK / 1000, ease: 'power3.inOut' });
         trailFx(fl, WIND + DASH + 40, fac);
-        an.onfinish = () => { fl.remove(); if (duel && duel.atk === uid) { duel.fly = false; render(); } };
         setTimeout(() => {
-          if (!alive) { an.cancel(); fl.remove(); if (duel && duel.atk === uid) duel.fly = false; }
+          if (!alive) { an.kill(); fl.remove(); if (duel && duel.atk === uid) duel.fly = false; }
           clashFx(B.left + B.width / 2, B.top + B.height / 2 - dir * B.height / 2 + dir * 4, A.width, fac);
           if (bl) document.querySelector<HTMLElement>(`[data-uid="${bl.uid}"]`)?.animate([{ transform: 'scale(1.08)' }, { transform: `translateY(${dir * 16}px) rotate(${dir * 3}deg) scale(1.02)`, filter: 'brightness(2.2)', offset: .3 }, { transform: 'scale(1.08)' }], { duration: 340, easing: 'ease-out' });
         }, GO);
@@ -252,7 +254,7 @@ function render() {
     const a = valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length;
     const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
-    return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
+    return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}" data-c="${u.card}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {
     const back: string[] = [], comb: string[] = [];
@@ -291,9 +293,10 @@ function render() {
   app.dataset.ph = String(ph);
   const whose = s.winner !== null || s.phase === 'mulligan' ? '' : s.active === 0 ? 'mine' : 'theirs';
   const hud = `<div class="phasehud ${whose}"><div class="who">${whose === 'mine' ? '⚡ TU TURNO' : whose ? '⏳ TURNO RIVAL' : 'PARTIDA'}</div><ol>${PH.map((x, k) => `<li class="${k === ph ? 'on' : k < ph ? 'done' : ''}"><i>${k + 1}</i><span>${x[0]}</span>${k === ph ? `<small>${x[1]}</small>` : ''}</li>`).join('')}</ol>${s.stack.length ? '<div class="hstack">✦ Pila activa</div>' : ''}</div>`;
-  const n = me.hand.length, fan = me.hand.map((id, i) => { const r = i - (n - 1) / 2;
-    return `<div class="slotc" data-a="hand" data-i="${i}" style="--rot:${(r * 3.2).toFixed(1)}deg;--y:${(r * r * 2.6).toFixed(1)}px" aria-label="${esc(nameOf(id))}, coste ${CARDS[id].cost}">${card(id, '', `${myTurn && canPlay(s, 0, i) ? 'ok' : 'no'} ${tgt?.hand === i ? 'sel' : ''}`)}</div>`; }).join('');
+  const n = me.hand.length, occ: Record<string, number> = {}, fan = me.hand.map((id, i) => { const r = i - (n - 1) / 2, k = `${id}#${occ[id] = (occ[id] ?? -1) + 1}`;
+    return `<div class="slotc" data-a="hand" data-i="${i}" data-k="${k}" data-id="${id}" style="--rot:${(r * 3.2).toFixed(1)}deg;--y:${(r * r * 2.6).toFixed(1)}px" aria-label="${esc(nameOf(id))}, coste ${CARDS[id].cost}">${card(id, '', `${myTurn && canPlay(s, 0, i) ? 'ok' : 'no'} ${tgt?.hand === i ? 'sel' : ''}`)}</div>`; }).join('');
   const mullHTML = s.phase === 'mulligan' && s.mull[0] ? `<div class="mull"><h2>Mulligan</h2><p>Esperando al rival…</p></div>` : s.phase === 'mulligan' ? `<div class="mull"><h2>Mulligan</h2><p>Toca las cartas que quieras reemplazar (0 a 4)</p><div class="mrow">${me.hand.map((id, i) => card(id, `data-a="mul" data-i="${i}"`, mulSel.has(i) ? 'sel swap' : '')).join('')}</div><button class="btn" data-a="mulgo">${mulSel.size ? `Reemplazar ${mulSel.size}` : 'Conservar mano'}</button></div>` : '';
+  motionSnapshot(app, gameId);
   app.innerHTML = `<header><div class="brand"><span class="brand-mark">✦</span><h1>Cartas <small>ALFA</small></h1></div><div class="header-state"><span class="rd">Ronda ${s.round}/40</span><span class="phase-chip">${phaseName}</span><span class="tok">${s.tok[0] ? '⚑ Tienes la ficha de ataque' : s.tok[1] ? '⚑ Ficha de ataque: rival' : '⚑ Ficha gastada'}</span></div>
     <nav class="toolbar"><button class="ghost" data-a="chat">${chatOpen ? '✕ Cerrar' : '☰ Chat / registro'}</button><button class="ghost icon-btn" data-a="mute">${isMuted() ? '🔇' : '🔊'}</button><button class="ghost" data-a="menu">⌂ Menú</button><button class="ghost" data-a="online">🌐 Online</button><button class="ghost" data-a="new">↻ Nueva partida</button></nav></header>` +
     `<main class="stage ${tgt ? 'targeting' : ''}${dueling ? ' dueling' : ''}" data-dnex="${duel && duel.blk === null ? duel.def : ''}">${duel ? `<div class="duelcap">${duel.cap}</div>` : ''}
@@ -308,6 +311,7 @@ function render() {
       <button class="endbtn ${mode}" data-a="${mode === 'atk' ? 'attack' : 'go'}" ${mode === 'wait' ? 'disabled' : ''}><span>${label}</span></button></aside>
       <div class="fan">${fan}</div></main>` + mullHTML +
     (s.winner !== null ? `<div class="over"><h2>${msg}</h2><button class="btn" data-a="new">Jugar de nuevo</button></div>` : '');
+  motionPlay(app, side => (fac(side) ? 'umb' : 'lum'));
   // --- efectos y sonidos por transición de estado ---
   const fresh = s.p.some(p => p.board.some(u => !seen.has(u.uid))), gone = lastBoard.some(l => l.some(uid => !s.p.some(p => p.board.some(u => u.uid === uid))));
   if (fresh) s.p.flatMap(p => p.board.filter(u => !seen.has(u.uid)).map(u => u.card)).forEach((id, k) => setTimeout(() => sfxCard(id), k * 170)); if (gone) sfx('death');

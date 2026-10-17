@@ -148,6 +148,15 @@ export function clashFx(ix: number, iy: number, w: number, f: Pal) {
   add({ k: 'glow', x: ix, y: iy, sz: w * 1.3, gr: .5, life: 260, h: 48, s: 40, l: 96, a: 1 });
   impact(ix, iy, w * 1.15, f, 1.4); impact(ix, iy, w * .7, 'fire', 1); shake();
 }
+/** Aterrizaje de una unidad invocada: onda, polvo y chispas hacia arriba, con un temblor suave de la pantalla. */
+export function landFx(x: number, y: number, w: number, f: Pal) {
+  if (!ctx) return;
+  add({ k: 'ring', x, y, sz: w * .18, gr: w * .8, w: 5, life: 480, h: hue(f), l: 74 });
+  add({ k: 'glow', x, y, sz: w * .75, gr: .6, life: 320, h: hue(f), l: 84, a: .7 });
+  sparks(x, y, 12, f, w * .07, { rot: -Math.PI / 2 });
+  for (let i = 0; i < 4; i++) add({ k: 'smoke', x: x + rr(-w * .4, w * .4), y: y + w * .15, vx: rr(-.8, .8), vy: rr(-.4, -.05), d: .98, sz: w * rr(.18, .3), gr: 1, life: rr(500, 800), a: .22, h: f === 'umb' ? 272 : 36, s: 30, l: f === 'umb' ? 40 : 70, add: false });
+  const app = document.getElementById('app'); if (app) { app.classList.remove('shk-soft', 'shk-hard'); void app.offsetWidth; app.classList.add('shk-soft'); }
+}
 /** Estela de luz que sigue a la carta en vuelo (interpola entre fotogramas para que no queden huecos a alta velocidad). */
 export function trailFx(el: HTMLElement, ms: number, f: Pal) {
   if (!ctx) return;

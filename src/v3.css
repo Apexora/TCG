@@ -247,3 +247,9 @@
 #title .t-fac button.c{color:#bffcef}
 #title .t-go.dk{color:#e9e1ff;box-shadow:inset 0 0 0 1px #9a6bffaa;animation-delay:1.1s}
 #title .t-go.dk:hover,#title .t-go.dk:focus-visible{color:#120a24;background:linear-gradient(#e2d2ff,#9a6bff);box-shadow:inset 0 0 0 1px #e2d2ff;filter:drop-shadow(0 0 18px #9a6bffaa)}
+/* Vida en reposo: las ilustraciones de las unidades "respiran" con desfases distintos */
+@keyframes idleart{from{transform:scale(1.03) translateY(0)}to{transform:scale(1.075) translateY(-1.6%)}}
+.mini:not(.dying):not(.duelatk) .art img{animation:idleart 4.6s ease-in-out infinite alternate;transform-origin:50% 60%}
+.mini:nth-child(2n) .art img{animation-duration:5.4s;animation-delay:-1.7s}.mini:nth-child(3n) .art img{animation-duration:6.1s;animation-delay:-3.1s}
+.card.enter{animation:none}
+@media (prefers-reduced-motion:reduce){.mini .art img{animation:none}}
