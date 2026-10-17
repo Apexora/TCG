@@ -19,5 +19,5 @@ export interface State {
   mull: [boolean, boolean];
 }
 export type Action =
-  | { type: 'play'; hand: number; target?: number } | { type: 'pass' } | { type: 'attack'; units: number[] }
+  | { type: 'play'; hand: number; target?: number } | { type: 'pass' } | { type: 'attack'; units: number[]; challenge?: Record<string, number> }
   | { type: 'block'; attacker: number; blocker: number } | { type: 'confirmBlocks' } | { type: 'mulligan'; idx: number[]; player?: 0 | 1 };

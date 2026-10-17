@@ -6,7 +6,7 @@ import { hideMenu, initFx, showMenu } from './ui/fx';
 import { deckCards, deckFaction, deckLabel, getDeck, otherDeck, wireDeck } from './decks';
 import { CARDS, DECKS } from './data/cards';
 import { aiAction } from './ai/ai';
-import { atkOf, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
+import { atkOf, canBlock, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
 import { epicEntrance, isFlagship } from './ui/epic';
@@ -125,14 +125,19 @@ function portrait(p: Player, i: number, label: string): string {
 }
 
 // ---------- Ataques con animación + informe ----------
-function runAttack(units: number[], side: number) {
+let chal: { units: number[]; queue: number[]; picks: Record<string, number> } | null = null;  // Retador: el jugador elige qué enemigo bloquea
+function runAttack(units: number[], side: number, challenge?: Record<string, number>) {
   if (s.phase !== 'main') return;
-  if (online) { dispatch({ type: 'attack', units }); return; }  // online: la animación se hace al llegar la jugada confirmada
+  if (side === 0 && !challenge && s.p[1].board.length) {
+    const q = units.filter(k => s.p[0].board[k]?.kw.includes('retador')).map(k => s.p[0].board[k].uid);
+    if (q.length) { chal = { units, queue: q, picks: {} }; sfx('select'); render(); return; }
+  }
+  if (online) { dispatch({ type: 'attack', units, challenge }); return; }  // online: la animación se hace al llegar la jugada confirmada
   const gid = gameId; busy = true; pend = { side, idx: units }; sfx('attack');
   vfx('banner small', `⚔ ${side ? 'El rival ataca' : 'Atacas'} con ${units.length}`); render();
   setTimeout(() => {
     if (gid !== gameId) return;
-    pend = null; busy = false; const n = step(s, { type: 'attack', units });
+    pend = null; busy = false; const n = step(s, { type: 'attack', units, challenge });
     if (n === s) { toast('No puedes atacar ahora'); sel.clear(); render(); return; }
     s = n; sel.clear(); render(); loop();
   }, 900);
@@ -251,7 +256,7 @@ function render() {
     let fx = '', fc = ''; if (o && s.round === lastRound) { if (eff < o[1]) { fc = 'hurt'; fx = String(eff - o[1]); } else if (eff > o[1] || atkOf(u) > o[0]) { fc = 'boost'; fx = '+' + (eff > o[1] ? eff - o[1] : atkOf(u) - o[0]); } }
     htmlCache.set(u.uid, card(u.card, '', 'mini dying', u));
     const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
-    const a = valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
+    const a = chal && !mine && canBlock(s.p[0].board.find(x => x.uid === chal!.queue[0])!, u) && !Object.values(chal.picks).includes(u.uid) ? 'chal' : valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length;
     const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
     return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}" data-c="${u.card}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
@@ -268,6 +273,7 @@ function render() {
   const F = lanes(foe, 1), M = lanes(me, 0);
   const phaseName = s.phase === 'mulligan' ? 'Mulligan' : s.phase === 'main' ? 'Prioridad' : s.phase === 'block' ? 'Bloqueos' : 'Pila';
   const msg = s.winner !== null ? (s.winner === -1 ? 'Empate' : s.winner === 0 ? '¡Victoria!' : 'Derrota')
+    : chal ? `⚔ Retador: elige qué enemigo debe bloquear a ${nameOf(me.board.find(u => u.uid === chal!.queue[0])?.card ?? '')} · Esc cancela`
     : tgt ? `Elige objetivo para ${nameOf(me.hand[tgt.hand])} · Esc cancela`
     : s.phase === 'stack' ? (myTurn ? `Responde o pulsa OK · ${s.stack.length} en la pila` : `Pila · ${s.stack.length}`)
     : s.phase === 'block' ? (defMe ? 'Toca un atacante y luego tu bloqueador' : s.active === 0 ? 'Rival bloqueó: puedes responder o resolver' : 'El rival asigna bloqueos…')
@@ -370,6 +376,7 @@ function go() {
 }
 app.addEventListener('click', e => {
   const t = (e.target as HTMLElement).closest<HTMLElement>('[data-a]');
+  if (chal && t?.dataset.a !== 'chal') { chal = null; render(); return; }
   if (tgt && t?.dataset.a !== 'tgt') { tgt = null; render(); if (!t || t.dataset.a === 'hand') return; }
   if (!t) return;
   const a = t.dataset.a, i = Number(t.dataset.i), myTurn = s.active === 0 && s.winner === null && !busy && s.phase !== 'mulligan';
@@ -382,6 +389,11 @@ app.addEventListener('click', e => {
   else if (a === 'mul') { sfx('select'); mulSel.has(i) ? mulSel.delete(i) : mulSel.add(i); render(); }
   else if (a === 'mulgo') { sfx('click'); const idx = [...mulSel]; mulSel.clear(); dispatch({ type: 'mulligan', idx }); }
   else if (!myTurn) return;
+  else if (a === 'chal') {
+    if (!chal) return; const f = s.p[1].board[i]; if (!f) return;
+    chal.picks[String(chal.queue.shift()!)] = f.uid; sfx('select');
+    if (chal.queue.length) render(); else { const { units, picks } = chal; chal = null; runAttack(units, 0, picks); }
+  }
   else if (a === 'tgt') { if (tgt) { const uid = Number(t.dataset.uid), h = tgt.hand; dispatch({ type: 'play', hand: h, target: uid }); } }
   else if (a === 'hand') {
     if (!canPlay(s, 0, i)) { toast('No puedes jugar esa carta ahora'); return; }
@@ -396,7 +408,8 @@ app.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if ((e.target as HTMLElement).tagName === 'INPUT') return;
-  if (e.key === 'Escape' && tgt) { tgt = null; render(); }
+  if (e.key === 'Escape' && chal) { chal = null; render(); }
+  else if (e.key === 'Escape' && tgt) { tgt = null; render(); }
   else if (e.key === ' ' && s.phase !== 'mulligan') { e.preventDefault(); go(); }
 });
 document.addEventListener('contextmenu', e => { if (tgt) { e.preventDefault(); tgt = null; render(); } });

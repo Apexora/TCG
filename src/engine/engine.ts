@@ -238,7 +238,8 @@ export function step(s0: State, a: Action): State {
     s.tok[i] = false; s.attackers = atk.map(u => u.uid); s.blocks = {}; s.forced = [];
     const taken = new Set<number>();
     for (const u of atk) if (u.kw.includes('retador')) { // Retador: elige qué enemigo bloquea (aquí: el más débil al que puede matar, si no el de menos vida)
-      const c = foe.board.filter(x => !taken.has(x.uid)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
+      const pick = a.challenge?.[String(u.uid)], chosen = pick === undefined ? undefined : foe.board.find(x => x.uid === pick && !taken.has(x.uid) && canBlock(u, x));
+      const c = chosen ?? foe.board.filter(x => !taken.has(x.uid)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
       if (c) { s.blocks[String(u.uid)] = c.uid; s.forced.push(u.uid); taken.add(c.uid); }
     }
     s.phase = 'block'; s.active = o(i); s.passes = 0; s.log.push(`J${i + 1} declara ataque con ${atk.length} unidad(es)`);
