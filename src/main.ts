@@ -44,7 +44,7 @@ let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: 
 let sel = new Set<number>(), mulSel = new Set<number>(), chatOpen = false, busy = false, ended = false, gameId = 0;
 let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, pend: { side: number; idx: number[] } | null = null;
 let prev = [20, 20], seen = new Set<number>(), prevPlayed = [0, 0], lastRound = 0, prevHp = new Map<number, [number, number]>(), lastBoard: number[][] = [[], []], prevS: State = s;
-const htmlCache = new Map<number, string>();
+let ghostCache = new Map<number, { id: string; u: Unit }>();   // unidades del render anterior (para pintar la carta que muere)
 let reading = false, drawUntil = 0, prevActive: number = -1, prevSpell = 0;
 // ---------- Online ----------
 let online: Online | null = null, ME: Seat = 0;
@@ -125,12 +125,15 @@ function portrait(p: Player, i: number, label: string): string {
 }
 
 // ---------- Ataques con animación + informe ----------
+const chalTargets = (): Unit[] => { if (!chal) return []; const r = s.p[0].board.find(x => x.uid === chal!.queue[0]); return r ? s.p[1].board.filter(u => canBlock(r, u) && !Object.values(chal!.picks).includes(u.uid)) : []; };
+/** Quita de la cola los Retadores que ya no tienen enemigo elegible (el motor los resuelve solo). true = aún hay algo que elegir. */
+function chalNext(): boolean { while (chal && chal.queue.length && !chalTargets().length) chal.queue.shift(); return !!chal && chal.queue.length > 0; }
 let chal: { units: number[]; queue: number[]; picks: Record<string, number> } | null = null;  // Retador: el jugador elige qué enemigo bloquea
 function runAttack(units: number[], side: number, challenge?: Record<string, number>) {
   if (s.phase !== 'main') return;
   if (side === 0 && !challenge && s.p[1].board.length) {
     const q = units.filter(k => s.p[0].board[k]?.kw.includes('retador')).map(k => s.p[0].board[k].uid);
-    if (q.length) { chal = { units, queue: q, picks: {} }; sfx('select'); render(); return; }
+    if (q.length) { chal = { units, queue: q, picks: {} }; if (chalNext()) { sfx('select'); render(); return; } chal = null; }
   }
   if (online) { dispatch({ type: 'attack', units, challenge }); return; }  // online: la animación se hace al llegar la jugada confirmada
   const gid = gameId; busy = true; pend = { side, idx: units }; sfx('attack');
@@ -254,11 +257,10 @@ function render() {
   const unit = (u: Unit, i: number, side: number) => {
     const mine = side === 0, o = prevHp.get(u.uid), eff = curHp(u);
     let fx = '', fc = ''; if (o && s.round === lastRound) { if (eff < o[1]) { fc = 'hurt'; fx = String(eff - o[1]); } else if (eff > o[1] || atkOf(u) > o[0]) { fc = 'boost'; fx = '+' + (eff > o[1] ? eff - o[1] : atkOf(u) - o[0]); } }
-    htmlCache.set(u.uid, card(u.card, '', 'mini dying', u));
     const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
-    const a = chal && !mine && canBlock(s.p[0].board.find(x => x.uid === chal!.queue[0])!, u) && !Object.values(chal.picks).includes(u.uid) ? 'chal' : valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
+    const a = chal && !mine && chalTargets().includes(u) ? 'chal' : valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length;
-    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
+    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${chal && !mine && Object.values(chal.picks).includes(u.uid) ? 'forced ' : ''}${chal && !mine && chalTargets().includes(u) ? 'tgtok ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
     return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}" data-c="${u.card}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {
@@ -266,14 +268,14 @@ function render() {
     p.board.forEach((u, i) => { if (!inCombat(u, side)) back.push(unit(u, i, side)); });
     cols.forEach(c => { const x = side === T ? c.a : c.b, xi = side === T ? c.ai : c.bi;
       comb.push(x ? unit(x, xi, side) : `<div class="slot cslot ${fac(side) ? 'umb' : 'lum'} ${defMe && side === 0 ? 'ask' : ''}">${defMe && side === 0 ? '<span>Elige<br>defensor</span>' : ''}</div>`); });
-    const ghosts = lastBoard[side].filter(uid => !p.board.some(u => u.uid === uid)).map(uid => htmlCache.get(uid) ?? '');
+    const ghosts = lastBoard[side].filter(uid => !p.board.some(u => u.uid === uid)).map(uid => { const g = ghostCache.get(uid); return g ? card(g.id, '', 'mini dying', g.u) : ''; });
     const slots = Array.from({ length: Math.max(0, 6 - p.board.length) }, (_, k) => `<div class="slot ${fac(side) ? 'umb' : 'lum'}">${ghosts[k] ?? ''}</div>`).join('');
     return { back: back.join('') + slots, comb: comb.join('') };
   };
   const F = lanes(foe, 1), M = lanes(me, 0);
   const phaseName = s.phase === 'mulligan' ? 'Mulligan' : s.phase === 'main' ? 'Prioridad' : s.phase === 'block' ? 'Bloqueos' : 'Pila';
   const msg = s.winner !== null ? (s.winner === -1 ? 'Empate' : s.winner === 0 ? '¡Victoria!' : 'Derrota')
-    : chal ? `⚔ Retador: elige qué enemigo debe bloquear a ${nameOf(me.board.find(u => u.uid === chal!.queue[0])?.card ?? '')} · Esc cancela`
+    : chal ? `⚔ Retador: elige qué enemigo debe bloquear a ${nameOf(me.board.find(u => u.uid === chal!.queue[0])?.card ?? '')} (${Object.keys(chal.picks).length + 1}/${Object.keys(chal.picks).length + chal.queue.length}) · Esc cancela`
     : tgt ? `Elige objetivo para ${nameOf(me.hand[tgt.hand])} · Esc cancela`
     : s.phase === 'stack' ? (myTurn ? `Responde o pulsa OK · ${s.stack.length} en la pila` : `Pila · ${s.stack.length}`)
     : s.phase === 'block' ? (defMe ? 'Toca un atacante y luego tu bloqueador' : s.active === 0 ? 'Rival bloqueó: puedes responder o resolver' : 'El rival asigna bloqueos…')
@@ -334,7 +336,8 @@ function render() {
   if (!dueling && prevS.attackers.length && !s.attackers.length && prevS.round === s.round) report(prevS, s);
   prev = [me.nexus, foe.nexus]; prevPlayed = s.p.map(p => p.played.length); lastRound = s.round; prevS = s;
   prevHp = new Map(); lastBoard = [[], []];
-  s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); }));
+  ghostCache = new Map();
+  s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); ghostCache.set(u.uid, { id: u.card, u: { ...u, kw: [...u.kw] } }); }));
   if (s.winner !== null && !ended) { ended = true;if (s.winner !== -1) (online ? darPremio(online.code, s.winner === 0) : darPremioIA(s.winner === 0)).catch(() => {}); if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
   logv.innerHTML = log; chatEl.hidden = !chatOpen;
 }
@@ -376,7 +379,10 @@ function go() {
 }
 app.addEventListener('click', e => {
   const t = (e.target as HTMLElement).closest<HTMLElement>('[data-a]');
-  if (chal && t?.dataset.a !== 'chal') { chal = null; render(); return; }
+  if (chal && t?.dataset.a !== 'chal') {
+    if (t?.dataset.u?.startsWith('1:')) { toast('Ese enemigo ya fue elegido o no puede ser retado: elige otro'); return; }  // no cancelar por un clic erróneo
+    chal = null; render(); return;
+  }
   if (tgt && t?.dataset.a !== 'tgt') { tgt = null; render(); if (!t || t.dataset.a === 'hand') return; }
   if (!t) return;
   const a = t.dataset.a, i = Number(t.dataset.i), myTurn = s.active === 0 && s.winner === null && !busy && s.phase !== 'mulligan';
@@ -392,7 +398,7 @@ app.addEventListener('click', e => {
   else if (a === 'chal') {
     if (!chal) return; const f = s.p[1].board[i]; if (!f) return;
     chal.picks[String(chal.queue.shift()!)] = f.uid; sfx('select');
-    if (chal.queue.length) render(); else { const { units, picks } = chal; chal = null; runAttack(units, 0, picks); }
+    if (chalNext()) render(); else { const { units, picks } = chal; chal = null; runAttack(units, 0, picks); }
   }
   else if (a === 'tgt') { if (tgt) { const uid = Number(t.dataset.uid), h = tgt.hand; dispatch({ type: 'play', hand: h, target: uid }); } }
   else if (a === 'hand') {

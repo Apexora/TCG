@@ -175,7 +175,8 @@ function resolveCombat(s: State) {
   };
   // Segmento 1: Ataque rápido golpea antes del bloqueador.
   for (const { u, b } of pairs) if (b && u.kw.includes('rapido') && atkOf(u) > 0) { const ex = hit(u, at, b); if (u.kw.includes('arrollar')) nex(u, ex); if (u.kw.includes('efimero')) kill(u); }
-  cleanup(s); checkWin(s); if (s.winner !== null) return;
+  cleanup(s); checkWin(s);
+  if (s.winner !== null) { s.attackers = []; s.blocks = {}; s.forced = []; return; }  // partida decidida: cerrar el combate igualmente
   // Segmento 2: golpes simultáneos.
   for (const { u, had, b } of pairs) {
     if (curHp(u) <= 0) continue;
@@ -237,10 +238,15 @@ export function step(s0: State, a: Action): State {
     if (!atk.length) return s0;
     s.tok[i] = false; s.attackers = atk.map(u => u.uid); s.blocks = {}; s.forced = [];
     const taken = new Set<number>();
-    for (const u of atk) if (u.kw.includes('retador')) { // Retador: elige qué enemigo bloquea (aquí: el más débil al que puede matar, si no el de menos vida)
-      const pick = a.challenge?.[String(u.uid)], chosen = pick === undefined ? undefined : foe.board.find(x => x.uid === pick && !taken.has(x.uid) && canBlock(u, x));
-      const c = chosen ?? foe.board.filter(x => !taken.has(x.uid)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
-      if (c) { s.blocks[String(u.uid)] = c.uid; s.forced.push(u.uid); taken.add(c.uid); }
+    const force = (u: Unit, c: Unit) => { s.blocks[String(u.uid)] = c.uid; s.forced.push(u.uid); taken.add(c.uid); };
+    const ret = atk.filter(u => u.kw.includes('retador'));
+    for (const u of ret) { // Retador (1.ª pasada): respeta la elección del jugador
+      const pick = a.challenge?.[String(u.uid)], c = pick === undefined ? undefined : foe.board.find(x => x.uid === pick && !taken.has(x.uid) && canBlock(u, x));
+      if (c) force(u, c);
+    }
+    for (const u of ret) if (!s.forced.includes(u.uid)) { // 2.ª pasada: automático (el más débil al que puede matar, si no el de menos vida)
+      const c = foe.board.filter(x => !taken.has(x.uid) && canBlock(u, x)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
+      if (c) force(u, c);
     }
     s.phase = 'block'; s.active = o(i); s.passes = 0; s.log.push(`J${i + 1} declara ataque con ${atk.length} unidad(es)`);
   } else if (a.type === 'block') {

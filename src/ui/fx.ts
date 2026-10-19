@@ -6,26 +6,33 @@ import { openDeckBuilder } from './deckbuilder';
 const css = (el: HTMLElement, k: string, v: string) => el.style.setProperty(k, v);
 
 function particles() {
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) return;
   const cv = document.createElement('canvas'); cv.id = 'embers'; document.body.prepend(cv);
-  const g = cv.getContext('2d')!; let w = 0, h = 0; const P: { x: number; y: number; r: number; v: number; a: number; hue: number; ph: number }[] = [];
+  const g = cv.getContext('2d')!; let w = 0, h = 0; const P: { x: number; y: number; r: number; v: number; a: number; s: number; ph: number }[] = [];
   const size = () => { w = cv.width = innerWidth; h = cv.height = innerHeight; }; size(); addEventListener('resize', size);
-  for (let i = 0; i < 90; i++) P.push({ x: Math.random() * 2000, y: Math.random() * 1200, r: Math.random() * 2 + .4, v: Math.random() * .5 + .12, a: Math.random() * .6 + .2, hue: Math.random() < .55 ? 40 : 265, ph: Math.random() * 6 });
+  // Un sprite con brillo por tono (se dibuja con drawImage): evita shadowBlur + arco + relleno por partícula y frame
+  const spr = [40, 265].map(hue => { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d')!, gr = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, `hsla(${hue},95%,75%,1)`); gr.addColorStop(.25, `hsla(${hue},95%,68%,.85)`); gr.addColorStop(1, `hsla(${hue},95%,60%,0)`); x.fillStyle = gr; x.fillRect(0, 0, 32, 32); return c; });
+  const N = innerWidth < 700 ? 45 : 90;
+  for (let i = 0; i < N; i++) P.push({ x: Math.random() * 2000, y: Math.random() * 1200, r: Math.random() * 2 + .4, v: Math.random() * .5 + .12, a: Math.random() * .6 + .2, s: Math.random() < .55 ? 0 : 1, ph: Math.random() * 6.3 });
   let t = 0;
   (function loop() {
     t += .01; g.clearRect(0, 0, w, h);
     for (const p of P) {
       p.y -= p.v; p.x += Math.sin(t + p.ph) * .35; if (p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
-      const tw = .6 + Math.sin(t * 3 + p.ph) * .4; g.beginPath(); g.fillStyle = `hsla(${p.hue},95%,68%,${p.a * tw})`; g.shadowColor = `hsl(${p.hue},95%,60%)`; g.shadowBlur = 10;
-      g.arc(p.x % w, p.y, p.r, 0, 6.3); g.fill();
+      const tw = .6 + Math.sin(t * 3 + p.ph) * .4, d = p.r * 7;
+      g.globalAlpha = p.a * tw; g.drawImage(spr[p.s], (p.x % w) - d / 2, p.y - d / 2, d, d);
     }
+    g.globalAlpha = 1;
     requestAnimationFrame(loop);
   })();
 }
 function trail() {
   const d = document.createElement('div'); d.id = 'glow'; document.body.append(d);
   let x = 0, y = 0, tx = 0, ty = 0;
-  addEventListener('pointermove', e => { tx = e.clientX; ty = e.clientY; });
-  (function loop() { x += (tx - x) * .14; y += (ty - y) * .14; d.style.transform = `translate(${x - 160}px,${y - 160}px)`; requestAnimationFrame(loop); })();
+  let run = false;
+  const loop = () => { x += (tx - x) * .14; y += (ty - y) * .14; d.style.transform = `translate(${x - 160}px,${y - 160}px)`; if (Math.abs(tx - x) + Math.abs(ty - y) > .3) requestAnimationFrame(loop); else run = false; };
+  addEventListener('pointermove', e => { tx = e.clientX; ty = e.clientY; if (!run) { run = true; requestAnimationFrame(loop); } });
 }
 function foil() {
   let last: HTMLElement | null = null;
