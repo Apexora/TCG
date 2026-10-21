@@ -22,9 +22,9 @@ import { applyMove, toView, view, type Seat } from './net/sync';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
 import { darPremio, darPremioIA, type AdvInfo } from './net/premio';
 import { aplicarNE } from './net/elo';
-import { ensureUser, obtenerAvatar } from './net/firebase';
+import { ensureUser, obtenerAvatar, registrarActividad } from './net/firebase';
 import { openAdventure, closeAdventure, rivalImg } from './adventure/adventure';
-import { NATIONS, beaten, markWon, nextRival, progress, type Rival } from './adventure/rivals';
+import { NATIONS, PLAYABLE, beaten, markWon, nextRival, progress, type Rival } from './adventure/rivals';
 
 const app = document.getElementById('app')!;
 const pv = document.createElement('div'); pv.className = 'preview'; document.body.append(pv);
@@ -496,6 +496,18 @@ const resolveAva = async (v: string) => {
   return !/^[\w-]*$/.test(v) && [...v].length <= 4 ? v : '';   // solo un emoji corto se pinta como texto; un id sin imagen no
 };
 if (!import.meta.env.DEV) ensureUser().then(() => obtenerAvatar()).then(resolveAva).then(r => { if (r) { myAvatar = r; if (!pumping && !busy) render(); } }).catch(() => {});
+// Una sola vez por dispositivo: el progreso de Aventura que ya tenías antes de que existiera el feed se publica como un resumen por nación.
+const advResumen = async () => {
+  if (import.meta.env.DEV || localStorage.getItem('tcgAdvFeed')) return;
+  await ensureUser();
+  let ok = true;
+  for (const n of PLAYABLE) {
+    const v = NATIONS[n] ? progress(n) : 0, t = NATIONS[n]?.rivals.length ?? 0;
+    if (v > 0) ok = (await registrarActividad('tcg', 'aventura', { nacion: NATIONS[n].name, vencidos: v, total: t, conquista: v === t })) && ok;
+  }
+  if (ok) localStorage.setItem('tcgAdvFeed', '1');
+};
+advResumen().catch(() => {});
 const savedRoom = Online.savedCode();
 if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
 
