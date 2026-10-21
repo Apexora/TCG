@@ -1,6 +1,6 @@
 declare const process: { exit(n: number): never };
 import { DECKS } from '../data/cards';
-import { atkOf, canBlock, newGame, step } from '../engine/engine';
+import { atkOf, canAttack, canBlock, newGame, step } from '../engine/engine';
 import type { State, Unit } from '../engine/types';
 let fails = 0; const ok = (c: boolean, m: string) => { if (!c) { fails++; console.log('✗ ' + m); } };
 const U = (uid: number, card: string, atk: number, hp: number, kw: Unit['kw'] = []): Unit => ({ uid, card, atk, hp, dmg: 0, kw, ta: 0, th: 0 });
@@ -26,5 +26,63 @@ let r = fresh(); r.p[r.token].board = [U(1, 'lum_acolita', 3, 3, ['barrera'])]; 
 r = step(r, { type: 'attack', units: [0] }); r = step(r, { type: 'block', attacker: 0, blocker: 0 }); r = step(r, { type: 'confirmBlocks' }); r = step(r, { type: 'pass' });
 ok(r.p[r.token].board[0].dmg === 0 && !r.p[r.token].board[0].kw.includes('barrera'), 'barrera niega el primer daño');
 ok(atkOf(U(1, 'x', 2, 2)) === 2, 'poder base');
-console.log(fails ? `${fails} fallo(s)` : 'Reglas v3 verificadas: mulligan, rondas, maná de hechizo, bloqueo, rápido, arrollar, elusivo, barrera.');
+// ---- Mecánicas de las naciones de la Aventura ----
+{
+const endRound = (g: State): State => { let x = g; for (let k = 0; k < 2; k++) x = step(x, { type: 'pass' }); return x; };
+const mine = (g: State) => g.p[g.token];
+// Mutante: +2 de poder y -1 de vida permanentes al cerrar la ronda; muere al llegar a 0 de vida
+let m = fresh(); const mt = m.token; mine(m).board = [U(1, 'psy_cobaya', 2, 3, ['mutante']), U(2, 'psy_larva', 1, 1, ['mutante'])];
+m = endRound(m); ok(m.p[mt].board.length === 1 && m.p[mt].board[0].atk === 4 && m.p[mt].board[0].hp === 2, 'Mutante: +2/-1 al cerrar la ronda y muere con 0 de vida');
+// Don: al morir, las demás aliadas ganan +1/+1
+let d = fresh(); mine(d).board = [U(1, 'sin_cantor', 1, 2, ['don']), U(2, 'sin_panadero', 2, 2)]; d.p[d.token].board[0].dmg = 5;
+d = step(d, { type: 'pass' }); d = step(d, { type: 'pass' });
+ok(d.p[0].board.concat(d.p[1].board).filter(u => u.card === 'sin_panadero').every(u => u.atk === 3 && u.hp === 2) && !d.p[d.token].board.some(u => u.card === 'sin_cantor'), 'Don: al morir da +1 de poder a las aliadas');
+// Leal: al entrar otra Leal, ambas ganan +1/+1
+let l = fresh(); const lt = l.token; l.p[lt].hand = ['ost_obrero', 'ost_aprendiz'];
+l = step(l, { type: 'play', hand: 0 }); l = step(l, { type: 'pass' }); l = step(l, { type: 'play', hand: 0 });
+ok(l.p[lt].board.length === 2 && l.p[lt].board[0].atk === 2 && l.p[lt].board[0].hp === 1 && l.p[lt].board[1].atk === 1, 'Leal: las demás Leales ganan +1 de poder al entrar');
+// Clonar: copia de la aliada más fuerte con la mitad de estadísticas (redondeo arriba)
+let c = fresh(); const ct = c.token; c.p[ct].board = [U(1, 'umb_titan', 7, 7, ['regenera'])]; c.p[ct].hand = ['ost_cientifico'];
+c = step(c, { type: 'play', hand: 0 });
+const cl = c.p[ct].board.find(u => u.uid !== 1 && u.card === 'umb_titan');
+ok(!!cl && cl.atk === 4 && cl.hp === 4 && cl.kw.includes('regenera'), 'Clonar: copia 4/4 de la más fuerte');
+// Fusión: sacrifica a la más débil y absorbe sus estadísticas
+let f = fresh(); const ft = f.token; f.p[ft].board = [U(1, 'umb_sombra', 2, 1)]; f.p[ft].hand = ['psy_quimera'];
+f = step(f, { type: 'play', hand: 0 });
+ok(f.p[ft].board.length === 1 && f.p[ft].board[0].card === 'psy_quimera' && f.p[ft].board[0].atk === 5 && f.p[ft].board[0].hp === 4, 'Fusión: absorbe a la más débil');
+// Tregua: nadie puede atacar esa ronda; se levanta al cerrar la ronda
+let t = fresh(); const tt = t.token; mine(t).board = [U(1, 'umb_sombra', 2, 2)]; t.p[tt].hand = ['sin_tregua'];
+t = step(t, { type: 'play', hand: 0 }); t = step(t, { type: 'pass' });   // la pila se resuelve
+t.active = t.token; t.passes = 0;
+const t2 = step(t, { type: 'attack', units: [0] });
+ok(t.peace === true && t2 === t, 'Tregua: el ataque es ilegal esta ronda');
+t = endRound(t); ok(!t.peace, 'Tregua: se levanta al cerrar la ronda');
+// Chicle: la Pegada no ataca ni bloquea y se quita al cerrar la ronda
+let g2 = fresh(); const gt = g2.token; g2.p[gt].hand = ['pon_chicle']; g2.p[gt].board = [U(1, 'umb_sombra', 2, 2)]; g2.p[1 - gt].board = [U(2, 'lum_centinela', 2, 3)];
+g2 = step(g2, { type: 'play', hand: 0, target: 2 }); g2 = step(g2, { type: 'pass' }); g2 = step(g2, { type: 'pass' });
+const foeU = g2.p[1 - gt].board[0];
+ok(foeU.kw.includes('pegada') && !canBlock(g2.p[gt].board[0], foeU) && !canAttack(foeU), 'Chicle: Pegada no ataca ni bloquea');
+g2 = endRound(g2); ok(!g2.p[0].board.concat(g2.p[1].board).some(u => u.kw.includes('pegada')), 'Chicle: la Pegada se quita al cerrar la ronda');
+// Cerrojo: bloquea a Elusivos y Temibles
+ok(canBlock(U(1, 'x', 3, 1, ['elusivo']), U(2, 'krn_recluta', 1, 2, ['cerrojo'])) && canBlock(U(1, 'x', 3, 1, ['temible']), U(2, 'krn_recluta', 1, 2, ['cerrojo'])) && !canBlock(U(1, 'x', 3, 1, ['elusivo']), U(2, 'x', 1, 2)), 'Cerrojo: cierra el paso a Elusivos y Temibles');
+// Peaje: el rival pierde maná
+let pj = fresh(); const pt = pj.token; pj.p[pt].hand = ['krn_peaje']; pj.p[1 - pt].mana = 5;
+pj = step(pj, { type: 'play', hand: 0 }); pj = step(pj, { type: 'pass' }); ok(pj.p[1 - pt].mana === 3, 'Peaje: el rival pierde 2 de maná');
+// Raíz: no ataca y al cerrar la ronda da un Retoño; Poda destruye a la más débil
+let r = fresh(); mine(r).board = [U(1, 'syl_semilla', 0, 2, ['raiz'])];
+ok(!canAttack(mine(r).board[0]) && step(r, { type: 'attack', units: [0] }) === r, 'Raíz: no puede atacar');
+r = endRound(r); ok(r.p[0].board.concat(r.p[1].board).filter(u => u.card === 'syl_retono').length === 1, 'Raíz: da vida a un Retoño al cerrar la ronda');
+let po = fresh(); const pot = po.token; po.p[pot].hand = ['syl_poda']; po.p[1 - pot].board = [U(5, 'lum_centinela', 2, 2), U(6, 'umb_titan', 7, 7)];
+po = step(po, { type: 'play', hand: 0 }); po = step(po, { type: 'pass' }); po = step(po, { type: 'pass' });
+ok(po.p[1 - pot].board.length === 1 && po.p[1 - pot].board[0].uid === 6, 'Poda: destruye a la unidad enemiga más débil');
+// Gas tóxico: daña a las no Adaptadas; las Adaptadas ganan +1 de poder
+let gs = fresh(); const gst = gs.token; gs.p[gst].hand = ['dsj_fuga']; mine(gs).board = [U(1, 'dsj_nacido', 2, 2, ['adaptado'])]; gs.p[1 - gst].board = [U(2, 'lum_centinela', 2, 3)];
+gs = step(gs, { type: 'play', hand: 0 }); gs = step(gs, { type: 'pass' }); gs = step(gs, { type: 'pass' }); gs = step(gs, { type: 'pass' });   // resolver, cerrar ronda
+ok(gs.p[1 - gst].board[0].dmg === 1 && gs.p[gst].board[0].atk === 2 && gs.p[gst].board[0].dmg === 0 && gs.gas === 0, 'Gas: daña a lo no Adaptado, el Adaptado es inmune');
+// Estilo: cada hechizo lanzado da +1/+1 esta ronda
+let e2 = fresh(); const et = e2.token; e2.p[et].hand = ['pon_pose']; mine(e2).board = [U(1, 'pon_modelo', 2, 2, ['estilo'])];
+e2 = step(e2, { type: 'play', hand: 0, target: 1 }); const eu = e2.p[et].board[0];
+ok(eu.atk + eu.ta === 5 && eu.hp + eu.th === 3, 'Estilo: +1/+1 al lanzar un hechizo (+2 de la Pose)');
+}
+console.log(fails ? `${fails} fallo(s)` : 'Reglas v3 verificadas: mulligan, rondas, maná de hechizo, bloqueo, rápido, arrollar, elusivo, barrera + mecánicas de naciones (Mutante, Don, Leal, Clonar, Fusión, Tregua, Chicle, Cerrojo, Peaje, Raíz, Poda, Gas, Estilo).');
 process.exit(fails ? 1 : 0);

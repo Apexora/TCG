@@ -155,6 +155,12 @@ export async function obtenerPerfil() {
   const s = await getDoc(refJugador());
   return s.exists() ? s.data() : null;
 }
+/** Avatar del perfil del Portal (emoji o URL/data de imagen). */
+export async function obtenerAvatar() {
+  if (!auth.currentUser) return "";
+  const s = await getDoc(doc(db, "apexora_profiles", auth.currentUser.uid));
+  return s.exists() ? String(s.data().avatar || "") : "";
+}
 export async function ranking(n = 10) {
   const q = query(collection(db, COL), orderBy("streak.best", "desc"), limit(n));
   return (await getDocs(q)).docs.map((d) => ({ uid: d.id, ...d.data() }));

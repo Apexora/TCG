@@ -4,7 +4,8 @@ import { DECKS, CARDS } from '../data/cards';
 import { atkOf, curHp } from '../engine/engine';
 let seedv = 12345; const R = () => { seedv = (seedv * 1664525 + 1013904223) >>> 0; return seedv / 4294967296; };
 const ri = (n: number) => Math.floor(R() * n);
-const decks = Object.values(DECKS) as string[][];
+import { NATIONS } from '../adventure/rivals';
+const decks = [...(Object.values(DECKS) as string[][]), ...Object.values(NATIONS).flatMap(n => n.rivals.map(r => r.deck))];
 let bad = 0, games = 0, stuck = 0, steps = 0; const issues = new Map<string, number>();
 const note = (m: string) => { issues.set(m, (issues.get(m) ?? 0) + 1); bad++; };
 for (let gI = 0; gI < 1500; gI++) {

@@ -1,7 +1,7 @@
 export {
   app, auth, db,
   requerirUsuario as ensureUser,
-  premiar, sumarStat, desbloquearLogro, obtenerPerfil, registrarActividad,
+  premiar, sumarStat, desbloquearLogro, obtenerPerfil, obtenerAvatar, registrarActividad,
 } from '../apexora-core.js';
 
 export const isConfigured = true;

@@ -49,18 +49,18 @@ function draw(p: P) {
       const r = Math.max(1, p.sz * (1 + p.gr * (p.k === 'vort' ? 0 : u))), a = p.a * (p.k === 'smoke' ? Math.min(1, u * 6) * fd : fd);
       const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
       g.addColorStop(0, c(a)); g.addColorStop(.4, c(a * .45)); g.addColorStop(1, c(0));
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.3); ctx.fill(); break;
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, r), 0, 6.3); ctx.fill(); break;
     }
     case 'ring':
-      ctx.strokeStyle = c(p.a * fd); ctx.lineWidth = p.w * fd + .6; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz + p.gr * ease(u), 0, 6.3); ctx.stroke(); break;
+      ctx.strokeStyle = c(p.a * fd); ctx.lineWidth = p.w * fd + .6; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, p.sz + p.gr * ease(u)), 0, 6.3); ctx.stroke(); break;
     case 'shard':
       ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillStyle = c(fd * .95);
       ctx.beginPath(); ctx.moveTo(0, -p.sz); ctx.lineTo(p.sz * .45, p.sz * .6); ctx.lineTo(-p.sz * .4, p.sz * .5); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = `hsla(${p.h},40%,95%,${fd})`; ctx.lineWidth = 1; ctx.stroke(); ctx.restore(); break;
     case 'rune': {
       const r = p.sz * ease(Math.min(1, u * 2.6)), a = p.a * (u < .12 ? u / .12 : u > .6 ? (1 - u) / .4 : 1), ro = p.rot + p.vr * p.t;
-      ctx.strokeStyle = c(a); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 6.3); ctx.stroke();
-      ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, r * .84, 0, 6.3); ctx.stroke();
+      ctx.strokeStyle = c(a); ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, r), 0, 6.3); ctx.stroke();
+      ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(0, r * .84), 0, 6.3); ctx.stroke();
       ctx.lineWidth = 1.6; ctx.beginPath();
       for (let i = 0; i < p.n; i++) { const an = ro + i / p.n * 6.283, l = i % 2 ? .93 : .88; ctx.moveTo(p.x + Math.cos(an) * r * .84, p.y + Math.sin(an) * r * .84); ctx.lineTo(p.x + Math.cos(an) * r * (l + .07), p.y + Math.sin(an) * r * (l + .07)); }
       ctx.stroke();

@@ -10,7 +10,9 @@
     "test": "tsx src/sim/rules-check.ts",
     "deploy": "npm run build && npx gh-pages -d dist",
     "test:net": "tsx src/sim/net-check.ts",
-    "test:decks": "tsx src/sim/decks-check.ts"
+    "test:decks": "tsx src/sim/decks-check.ts",
+    "test:adv": "tsx src/sim/adv-check.ts",
+    "fuzz": "tsx src/sim/fuzz.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

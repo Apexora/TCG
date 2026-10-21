@@ -1,7 +1,8 @@
 // Capa de espectáculo: pantalla de título, partículas, foil holográfico, temblor de pantalla, estela del cursor y sonido de interfaz.
 import { sfx, startMusic } from './sound';
 import { initCombatFx } from './combatfx';
-import { customDecks, esc, getDeck, setDeck } from '../decks';
+import { customDecks, deckCards, deckFaction, esc, getDeck, setDeck, unlockedNationDecks } from '../decks';
+import { NATIONS, faction, quickRivals } from '../adventure/rivals';
 import { openDeckBuilder } from './deckbuilder';
 const css = (el: HTMLElement, k: string, v: string) => el.style.setProperty(k, v);
 
@@ -66,29 +67,93 @@ function flash(color: string) {
 }
 let titleEl: HTMLElement | null = null;
 /** Menú principal: elegir jugar contra la IA o en línea. Avisa a main.ts con eventos 'menu:ia' / 'menu:online'. */
+import { openRanking, pintarNE } from './ranking';
 export function showMenu() {
   if (titleEl) return;
   const t = titleEl = document.createElement('div'); t.id = 'title';
-  t.innerHTML = `<div class="t-bg"></div><div class="t-art l"></div><div class="t-art u"></div>
-    <div class="t-in"><p class="t-kicker"><i></i>DUELO DE LEYENDAS<i></i></p><h1>CARTAS</h1><div class="t-sub"><i></i><span>ALFA</span><i></i></div>
+  t.innerHTML = `<div class="t-bg"></div><div class="t-art"></div>
+    <div class="t-in"><p class="t-kicker"><i></i>APEXORA<i></i></p><h1>DUELO TCG</h1><div class="t-sub"><i></i><span>ALFA</span><i></i></div>
     <div class="t-fac" role="radiogroup" aria-label="Elige tu mazo"></div>
-    <div class="t-menu"><button class="t-go" data-m="ia" autofocus>⚔ JUGAR CONTRA LA IA</button><button class="t-go alt" data-m="online">🌐 JUGAR ONLINE</button><button class="t-go dk" data-m="decks">🃏 MIS MAZOS</button></div>
+    <div class="t-menu"><button class="t-go" data-m="ia" autofocus>⚔ JUGAR CONTRA LA IA</button><button class="t-go adv" data-m="adv">🗺 AVENTURA</button><button class="t-go alt" data-m="online">🌐 JUGAR ONLINE</button><button class="t-go dk" data-m="decks">🃏 MIS MAZOS</button><button class="t-go rkb" data-m="rank">🏆 RANKING</button></div><div class="ne-host" style="display:flex;justify-content:center"></div>
     <p class="t-hint">Elige tu mazo y un modo · sonido activado</p></div>`;
   document.body.append(t);
   const facEl = t.querySelector<HTMLElement>('.t-fac')!;
   const paint = () => {
     const cur = getDeck();
     facEl.innerHTML = `<button class="l" data-d="Luminarae" role="radio">☀ LUMINARAE</button><i>◆</i><button class="u" data-d="Umbra" role="radio">UMBRA ☾</button>`
+      + unlockedNationDecks().map(([k, n]) => `<i>◆</i><button class="c n" data-d="${k}" role="radio">🏳 ${esc(n)}</button>`).join('')
       + customDecks().map(d => `<i>◆</i><button class="c" data-d="${d.id}" role="radio">🃏 ${esc(d.name)}</button>`).join('');
     facEl.querySelectorAll<HTMLElement>('[data-d]').forEach(b => { const on = b.dataset.d === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
   };
-  facEl.addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]'); if (!b) return; setDeck(b.dataset.d!); sfx('select'); paint(); });
-  paint();
+  const KR = 'tcgRival';
+  const saved = () => { try { return localStorage.getItem(KR); } catch { return null; } };
+  /** Rival elegido (si no hay o ya no está disponible: el primero de la facción contraria a tu mazo). */
+  const pickedRival = () => {
+    const l = quickRivals(), sv = saved();
+    return l.find(([n, r]) => n + ':' + r.id === sv) ?? l.find(([n]) => n === (deckFaction(deckCards(getDeck())) === 'Umbra' ? 'luminarae' : 'umbra'))!;
+  };
+  const paintRiv = () => { /* el selector de rival ahora vive en el panel que abre «Jugar contra la IA» */ };
+  /** Panel «Elige a tu rival»: se abre al pulsar Jugar contra la IA. */
+  const openRivalPicker = () => {
+    if (t.querySelector('.rp')) return;
+    const list = quickRivals(); let sel = pickedRival();
+    const base = import.meta.env.BASE_URL;
+    const o = document.createElement('div'); o.className = 'rp'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Elige a tu rival');
+    const cards = () => list.map(([n, r]) => {
+      const u = faction(r) === 'Umbra', on = r === sel[1];
+      return `<button type="button" class="rp-c ${u ? 'u' : 'l'} ${on ? 'on' : ''}" role="radio" aria-checked="${on}" data-k="${n}:${r.id}">
+        <span class="rp-art"><b>${esc(r.name[0])}</b><img src="${base}img/rivals/${esc(r.id)}.webp" alt="" loading="lazy" onerror="this.remove()"><i>${u ? '☾' : '☀'}</i></span>
+        <span class="rp-n">${esc(r.name)}${r.boss ? '<em>JEFE</em>' : ''}</span>
+        <span class="rp-nat">${esc(NATIONS[n].name)}</span>
+        <span class="rp-lv" aria-label="Dificultad ${r.level} de 5">${'◆'.repeat(r.level)}<s>${'◆'.repeat(5 - r.level)}</s></span>
+        <small class="rp-tag">${esc(r.tag)}</small></button>`;
+    }).join('');
+    o.innerHTML = `<div class="rp-box"><p class="rp-k"><i></i>MODO ESCARAMUZA<i></i></p><h2>ELIGE A TU RIVAL</h2>
+      <div class="rp-grid" role="radiogroup" aria-label="Rival">${cards()}</div>
+      <p class="rp-hint">Vence a más rivales en la Aventura para desbloquearlos aquí</p>
+      <div class="rp-act"><button type="button" class="rp-back">‹ VOLVER</button><button type="button" class="rp-go">⚔ COMBATIR</button></div></div>`;
+    t.append(o);
+    const grid = o.querySelector<HTMLElement>('.rp-grid')!;
+    const close = () => { document.removeEventListener('keydown', onKey, true); o.classList.add('out'); setTimeout(() => o.remove(), 220); (t.querySelector('[data-m="ia"]') as HTMLElement | null)?.focus(); };
+    const go = () => {
+      try { localStorage.setItem(KR, sel[0] + ':' + sel[1].id); } catch { /* ignorar */ }
+      document.removeEventListener('keydown', onKey, true);
+      sfx('start'); startMusic(); hideMenu();
+      document.dispatchEvent(new CustomEvent('menu:ia', { detail: { nation: sel[0], rival: sel[1].id } }));
+    };
+    const choose = (b: HTMLElement) => {
+      const hit = list.find(([n, r]) => n + ':' + r.id === b.dataset.k); if (!hit) return; sel = hit;
+      grid.querySelectorAll<HTMLElement>('.rp-c').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
+      sfx('select');
+    };
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+      else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const bs = Array.from(grid.querySelectorAll<HTMLElement>('.rp-c')), i = bs.findIndex(x => x.classList.contains('on')), n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length];
+        e.preventDefault(); choose(n); n.focus();
+      }
+    }
+    document.addEventListener('keydown', onKey, true);
+    grid.addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('.rp-c'); if (b) choose(b); });
+    grid.addEventListener('dblclick', e => { if ((e.target as HTMLElement).closest('.rp-c')) go(); });
+    o.querySelector('.rp-go')!.addEventListener('click', go);
+    o.querySelector('.rp-back')!.addEventListener('click', () => { sfx('click'); close(); });
+    o.addEventListener('click', e => { if (e.target === o) close(); });
+    (grid.querySelector('.rp-c.on') as HTMLElement | null)?.focus();
+    grid.querySelector('.rp-c.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  };
+  facEl.addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]'); if (!b) return; setDeck(b.dataset.d!); sfx('select'); paint(); paintRiv(); });
+  paint(); paintRiv();
+  const onProg = () => { if (titleEl === t) { paint(); paintRiv(); } else document.removeEventListener('tcg:progreso', onProg); }; document.addEventListener('tcg:progreso', onProg);
+  const neHost = t.querySelector<HTMLElement>('.ne-host')!; pintarNE(neHost).catch(() => {});
+  const onNe = () => { if (titleEl === t) pintarNE(neHost).catch(() => {}); else document.removeEventListener('ne:cambio', onNe); }; document.addEventListener('ne:cambio', onNe);
   t.querySelectorAll<HTMLElement>('[data-m]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.m === 'rank') { sfx('click'); openRanking(); return; }
     if (b.dataset.m === 'decks') { sfx('click'); openDeckBuilder(paint); return; }
+    if (b.dataset.m === 'adv') { sfx('click'); document.dispatchEvent(new Event('menu:adv')); return; }
+    if (b.dataset.m === 'ia') { sfx('click'); openRivalPicker(); return; }
     sfx('start'); startMusic();
-    if (b.dataset.m === 'ia') { hideMenu(); document.dispatchEvent(new Event('menu:ia')); }
-    else document.dispatchEvent(new Event('menu:online'));
+    document.dispatchEvent(new Event('menu:online'));
   }));
 }
 export function hideMenu() { const t = titleEl; if (!t) return; titleEl = null; t.classList.add('out'); setTimeout(() => t.remove(), 900); }

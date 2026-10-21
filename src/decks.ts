@@ -1,5 +1,6 @@
 // Mazos: predeterminados (Luminarae/Umbra) + mazos personalizados guardados en el navegador. Sin DOM: se puede probar con tsx.
 import { CARDS, DECKS } from './data/cards';
+import { NATIONS, progress } from './adventure/rivals';
 
 export const DECK_SIZE = 30;     // los mazos personalizados deben tener exactamente 30 cartas
 export const MAX_COPIES = 2;     // copias máximas de una misma carta (como en los mazos predeterminados)
@@ -40,18 +41,28 @@ export function saveCustom(d: CustomDeck) {
 }
 export function removeCustom(id: string) { list = list.filter(d => d.id !== id); persist(); }
 
+// ---------- Mazos de nación (se desbloquean al vencer a todos los rivales de la nación) ----------
+const NAT = 'nat:';
+const natId = (key: string) => (key.startsWith(NAT) ? key.slice(NAT.length) : '');
+/** Luminarae y Umbra ya son mazos iniciales; las demás naciones desbloquean el suyo al vencer a todos sus rivales. */
+export const natUnlocked = (id: string) => id !== 'luminarae' && id !== 'umbra' && has(NATIONS, id) && progress(id) >= NATIONS[id].rivals.length;
+/** Naciones con mazo desbloqueado: [clave del mazo, nombre]. */
+export const unlockedNationDecks = (): [string, string][] => Object.keys(NATIONS).filter(natUnlocked).map(id => [NAT + id, NATIONS[id].name]);
+const natCards = (id: string): string[] => NATIONS[id].rivals.at(-1)!.deck.slice(0, DECK_SIZE);   // el núcleo del mazo de su jefe
+
 // ---------- Mazo elegido ----------
 let sel = 'Luminarae';
 try { sel = localStorage.getItem(KS) || sel; } catch { /* ignorar */ }
 /** Clave del mazo elegido: 'Luminarae', 'Umbra' o el id de un mazo personalizado (si ya no existe, Luminarae). */
-export const getDeck = (): string => (has(DECKS, sel) || list.some(d => d.id === sel) ? sel : 'Luminarae');
+export const getDeck = (): string => (has(DECKS, sel) || list.some(d => d.id === sel) || natUnlocked(natId(sel)) ? sel : 'Luminarae');
 export function setDeck(k: string) { sel = k; try { localStorage.setItem(KS, k); } catch { /* ignorar */ } }
 
 export function deckCards(key: string): string[] {
   if (has(DECKS, key)) return DECKS[key];
+  if (natUnlocked(natId(key))) return natCards(natId(key));
   return list.find(d => d.id === key)?.cards ?? DECKS.Luminarae;
 }
-export const deckLabel = (key: string) => (has(DECKS, key) ? key : list.find(d => d.id === key)?.name ?? 'Luminarae');
+export const deckLabel = (key: string) => (has(DECKS, key) ? key : natUnlocked(natId(key)) ? NATIONS[natId(key)].name : list.find(d => d.id === key)?.name ?? 'Luminarae');
 /** Facción "visual" de un mazo (avatar, colores): la que tenga más cartas. */
 export const deckFaction = (cards: string[]): Faction => (cards.filter(i => i.startsWith('umb')).length * 2 > cards.length ? 'Umbra' : 'Luminarae');
 /** Rival de la IA: el mazo predeterminado de la otra facción. */

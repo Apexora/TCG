@@ -1,4 +1,5 @@
 import type { CardDef, Effect, Keyword, SpellSpeed } from '../engine/types';
+import { NATION_CARDS } from './nations';
 const U = (id: string, name: string, cost: number, atk: number, hp: number, kw: Keyword[] = [], text = '', fx: Effect[] = [], grow?: { a: number; h: number }): CardDef =>
   ({ id, name, cost, type: 'unit', atk, hp, kw, text, fx, grow });
 const S = (id: string, name: string, cost: number, speed: SpellSpeed, text: string, fx: Effect[]): CardDef =>
@@ -70,7 +71,7 @@ export const UMBRA: CardDef[] = [
   S('umb_aplastar', 'Aplastar', 4, 'slow', 'Inflige 5 a una unidad enemiga.', [{ t: 'dmgEnemy', n: 5 }]),
   S('umb_eclipse', 'Eclipse', 6, 'slow', 'Destruye una unidad enemiga y roba 1.', [{ t: 'destroyEnemy' }, { t: 'draw', n: 1 }]),
 ];
-export const CARDS: Record<string, CardDef> = Object.fromEntries([...LUMINARAE, ...UMBRA].map(c => [c.id, c]));
+export const CARDS: Record<string, CardDef> = Object.fromEntries([...LUMINARAE, ...UMBRA, ...NATION_CARDS].map(c => [c.id, c]));
 /** Mazo de 40: las 30 cartas de la facción + 10 copias extra de las cartas base (baratas). */
 const LUM_EXTRA = ['lum_acolita', 'lum_vigia', 'lum_centinela', 'lum_portador', 'lum_novicia', 'lum_halcon', 'lum_destello', 'lum_rocio', 'lum_escudo', 'lum_bendicion'];
 const UMB_EXTRA = ['umb_sombra', 'umb_aprendiz', 'umb_acechador', 'umb_esqueleto', 'umb_cultista', 'umb_lobo', 'umb_golem', 'umb_punalada', 'umb_furia', 'umb_drenar'];

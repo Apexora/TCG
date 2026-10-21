@@ -23,7 +23,7 @@ const kill = (u: Unit) => { u.dmg = u.hp + u.th + 999; };
 const power = (u: Unit) => atkOf(u) * 1e6 + curHp(u) * 1e3 + CARDS[u.card].cost;
 const strongest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) > power(b) ? u : b), undefined);
 const weakest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) < power(b) ? u : b), undefined);
-const ENEMY_T = ['dmgEnemy', 'drain', 'destroyEnemy', 'sacDmg', 'frost'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
+const ENEMY_T = ['dmgEnemy', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
 /** Objetivo manual que exige un hechizo (null = sin objetivo). */
 export function targetKind(id: string): 'enemy' | 'ally' | null {
   const c = CARDS[id]; if (!c || c.type !== 'spell') return null;
@@ -31,11 +31,32 @@ export function targetKind(id: string): 'enemy' | 'ally' | null {
   if (c.fx.some(e => ALLY_T.includes(e.t))) return 'ally';
   return null;
 }
-/** Elusivo solo lo bloquea un elusivo; Temible solo lo bloquea quien tenga 3+ de poder. */
+/** Elusivo solo lo bloquea un elusivo; Temible solo lo bloquea quien tenga 3+ de poder.
+ *  Cerrojo (Krahn) cierra el paso: bloquea también a Elusivos y Temibles. Pegada (Pongí) no puede bloquear. */
 export function canBlock(a: Unit, b: Unit): boolean {
-  if (a.kw.includes('elusivo') && !b.kw.includes('elusivo')) return false;
-  if (a.kw.includes('temible') && atkOf(b) < 3) return false;
+  if (b.kw.includes('pegada')) return false;
+  const lock = b.kw.includes('cerrojo');
+  if (a.kw.includes('elusivo') && !b.kw.includes('elusivo') && !lock) return false;
+  if (a.kw.includes('temible') && atkOf(b) < 3 && !lock) return false;
   return true;
+}
+/** Raíz (Sylvaris) y Pegada (Pongí) no pueden atacar. */
+export const canAttack = (u: Unit): boolean => !u.kw.includes('raiz') && !u.kw.includes('pegada');
+
+/** Invoca `n` copias de una carta (ficha) respetando el límite de 6 unidades. */
+function spawn(s: State, i: number, id: string, n: number) {
+  const c = CARDS[id], me = s.p[i];
+  for (let k = 0; c && k < n && me.board.length < 6; k++) {
+    const u: Unit = { uid: ++s.uid, card: c.id, atk: c.atk, hp: c.hp, dmg: 0, kw: [...c.kw], ta: 0, th: 0 };
+    me.board.push(u); arrive(s, i, u);
+  }
+}
+/** Lealtad (Ostraca): al entrar una unidad Leal, las demás Leales aliadas ganan +1 de poder. */
+function arrive(s: State, i: number, u: Unit) {
+  if (!u.kw.includes('leal')) return;
+  const mates = s.p[i].board.filter(x => x !== u && x.kw.includes('leal'));
+  if (!mates.length) return;
+  mates.forEach(x => { x.atk += 1; });
 }
 
 export function newGame(decks: [string[], string[]], seed: number): State {
@@ -54,16 +75,27 @@ function startRound(s: State) {
   s.round++;
   if (s.round > 40) { s.winner = -1; return; }
   s.token = o(s.token); s.active = s.token; s.phase = 'main'; s.passes = 0; s.attackers = []; s.blocks = {}; s.forced = []; s.stack = [];
-  s.tok = [false, false]; s.tok[s.token] = true;
+  s.tok = [false, false]; s.tok[s.token] = true; s.peace = false;
   for (const i of [s.token, o(s.token)]) { const p = s.p[i]; p.maxMana = Math.min(10, p.maxMana + 1); p.mana = p.maxMana; draw(s, i, 1); if (s.winner !== null) return; }
   s.log = s.log.slice(-40); s.log.push(`— Ronda ${s.round} (ficha: J${s.token + 1}) —`); checkWin(s);
 }
 function endRound(s: State) {
   for (const p of s.p) { p.spell = Math.min(3, p.spell + p.mana); p.mana = 0; }
+  if ((s.gas ?? 0) > 0) {   // Gas tóxico (Disnjav): daña 1 a toda unidad sin Adaptado; los Adaptados se alimentan de él (+1 de poder)
+    let hit = 0;
+    for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('adaptado')) { /* inmune */ } else { u.dmg += 1; hit++; } });
+    s.gas = (s.gas ?? 0) - 1; s.log.push(`☣ El gas tóxico envenena a ${hit} unidad(es)${s.gas ? ` · quedan ${s.gas} ronda(s)` : ' · se disipa'}`);
+  }
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('regenera')) u.dmg = 0; });
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('efimero')) kill(u); });
   cleanup(s);
-  for (const p of s.p) p.board.forEach(u => { u.ta = 0; u.th = 0; if (u.dmg >= u.hp) u.dmg = u.hp - 1; });
+  for (const p of s.p) p.board.forEach(u => { u.ta = 0; u.th = 0; if (u.dmg >= u.hp) u.dmg = u.hp - 1; u.kw = u.kw.filter(k => k !== 'pegada'); });
+  s.peace = false;
+  // Mutante (Psybernia): +2 de poder y -1 de vida permanentes al cerrar la ronda (su cuerpo se deteriora)
+  for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('mutante')) { u.atk += 2; u.hp -= 1; } });
+  cleanup(s);
+  // Raíz (Sylvaris): cada Raíz da vida a un Retoño al cerrar la ronda
+  for (const i of [0, 1]) { const n = s.p[i].board.filter(u => u.kw.includes('raiz')).length; if (n) spawn(s, i, 'syl_retono', n); }
   checkWin(s); if (s.winner === null) startRound(s);
 }
 function checkWin(s: State) {
@@ -79,6 +111,8 @@ function cleanup(s: State) {
       if (!dead.length) continue;
       changed = true; p.board = p.board.filter(u => curHp(u) > 0);
       for (const u of p.board) { const g = CARDS[u.card].grow; if (g) { u.atk += g.a * dead.length; u.hp += g.h * dead.length; } }
+      const gifts = dead.filter(u => u.kw.includes('don')).length;   // Don (Sinfalía): al morir, tus unidades ganan +1 de poder
+      if (gifts) for (const u of p.board) u.atk += gifts;
     }
   }
 }
@@ -93,6 +127,7 @@ function dealDamage(s: State, t: Unit, n: number, src?: { u: Unit; owner: number
   if (src) {
     if (src.u.kw.includes('letal')) kill(t);
     if (src.u.kw.includes('robovida')) heal(s, src.owner, dealt);
+    if (src.u.kw.includes('veneno') && dealt > 0 && curHp(t) > 0) { t.hp -= 1; t.atk = Math.max(0, t.atk - 1); }  // Veneno: la víctima pierde 1/1 para siempre
   }
   return dealt;
 }
@@ -117,6 +152,25 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'sacDraw': { const v = weakest(me.board.filter(u => u !== src)); if (v) { kill(v); cleanup(s); draw(s, i, e.n); } break; }
     case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(foe.board); if (v && t) { const a = atkOf(v); kill(v); dealDamage(s, t, a); } break; }
     case 'debuffEnemies': foe.board.forEach(u => { u.atk = Math.max(0, u.atk - e.a); u.hp -= e.h; }); break;
+    case 'summon': spawn(s, i, e.card, e.n); break;
+    case 'fuse': { // Fusión (Psybernia): sacrifica a tu aliada más débil y la unidad absorbe sus estadísticas
+      const v = weakest(me.board.filter(u => u !== src)), t = src ?? strongest(me.board.filter(u => u !== v));
+      if (v && t && v !== t) { t.atk += v.atk; t.hp += Math.max(1, curHp(v)); kill(v); }
+      break;
+    }
+    case 'clone': { // Clonar (Ostraca): copia de tu aliada más fuerte con la mitad de sus estadísticas (redondeo arriba)
+      const t = strongest(me.board.filter(u => u !== src));
+      if (t && me.board.length < 6) { const u: Unit = { uid: ++s.uid, card: t.card, atk: Math.max(1, Math.ceil(t.atk / 2)), hp: Math.max(1, Math.ceil(t.hp / 2)), dmg: 0, kw: [...t.kw], ta: 0, th: 0 }; me.board.push(u); arrive(s, i, u); }
+      break;
+    }
+    case 'tregua': s.peace = true; s.log.push('☮ Tregua: esta ronda nadie puede atacar'); break;
+    case 'chicle': { const t = tgt ?? strongest(foe.board); if (t && !t.kw.includes('pegada')) t.kw.push('pegada'); break; }
+    case 'peaje': foe.mana = Math.max(0, foe.mana - e.n); break;
+    case 'poda': { const t = weakest(foe.board); if (t) kill(t); break; }
+    case 'gas': s.gas = Math.max(s.gas ?? 0, e.n); s.log.push(`☣ Gas tóxico: ${s.gas} ronda(s)`); break;
+    case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
+    case 'silence': { const t = tgt ?? strongest(foe.board); if (t) t.kw = []; break; }
+    case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;
     case 'destroyEnemy': { const t = tgt ?? strongest(foe.board); if (t) kill(t); break; }
   }
   cleanup(s);
@@ -218,9 +272,10 @@ export function step(s0: State, a: Action): State {
     if (c.type === 'unit') p.mana -= c.cost; else { const sm = Math.min(p.spell, c.cost); p.spell -= sm; p.mana -= c.cost - sm; }
     p.hand.splice(a.hand, 1); p.played.push(id);
     s.log.push(`J${i + 1} juega {${id}}`);
+    if (c.type === 'spell') p.board.forEach(u => { if (u.kw.includes('estilo')) { u.ta += 1; u.th += 1; } });   // Estilo (Pongí): cada hechizo que lanzas la hace brillar
     if (c.type === 'unit') {
       const u: Unit = { uid: ++s.uid, card: id, atk: c.atk, hp: c.hp, dmg: 0, kw: [...c.kw], ta: 0, th: 0 };
-      p.board.push(u); c.fx.forEach(e => applyFx(s, i, e, u)); cleanup(s); checkWin(s); s.active = o(i); s.passes = 0;
+      p.board.push(u); arrive(s, i, u); c.fx.forEach(e => applyFx(s, i, e, u)); cleanup(s); checkWin(s); s.active = o(i); s.passes = 0;
     } else {
       const sp = c.speed ?? 'fast';
       if (sp === 'burst' || sp === 'focus') { c.fx.forEach(e => applyFx(s, i, e, undefined, tgt)); cleanup(s); checkWin(s); fixBlocks(s); } // no pasa prioridad
@@ -233,8 +288,8 @@ export function step(s0: State, a: Action): State {
     else if (s.phase === 'block') { if (i === o(s.token)) { s.active = s.token; s.passes = 1; } else resolveCombat(s); }
     else if (++s.passes >= 2) endRound(s); else s.active = o(i);
   } else if (a.type === 'attack') {
-    if (s.phase !== 'main' || s.stack.length || s.attackers.length || !s.tok[i]) return s0;
-    const atk = [...new Set(a.units)].map(k => p.board[k]).filter((u): u is Unit => !!u);
+    if (s.phase !== 'main' || s.stack.length || s.attackers.length || !s.tok[i] || s.peace) return s0;
+    const atk = [...new Set(a.units)].map(k => p.board[k]).filter((u): u is Unit => !!u && canAttack(u));
     if (!atk.length) return s0;
     s.tok[i] = false; s.attackers = atk.map(u => u.uid); s.blocks = {}; s.forced = [];
     const taken = new Set<number>();
