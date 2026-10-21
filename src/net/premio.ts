@@ -35,8 +35,13 @@ export async function darPremio(partida: string, gane: boolean) {
 
 // Partida contra la IA: premio chico (sin negra ni logros) para no abrir una granja de esencias.
 // El tope diario del núcleo (300 azules) igualmente aplica.
-export async function darPremioIA(gane: boolean) {
+/** Primera victoria sobre un rival de la Aventura: va al feed del Portal con su propio texto. */
+export interface AdvInfo { nacion: string; rival: string; jefe: boolean; conquista: boolean }
+export async function darPremioIA(gane: boolean, aventura?: AdvInfo) {
   const r = await premiar(gane ? 8 : 2, 0);
-  if (gane) { registrarActividad('tcg', 'duelo', { ia: true }).catch(() => {}); await sumarStat('tcg', 'victorias_ia'); }
+  if (gane) {
+    registrarActividad('tcg', aventura ? 'aventura' : 'duelo', aventura ?? { ia: true }).catch(() => {});
+    await sumarStat('tcg', 'victorias_ia');
+  }
   return r;
 }

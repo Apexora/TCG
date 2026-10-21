@@ -20,11 +20,11 @@ import { isMuted, setTension, sfx, sfxCard, startMusic, toggleMute } from './ui/
 import { Online } from './net/online';
 import { applyMove, toView, view, type Seat } from './net/sync';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
-import { darPremio, darPremioIA } from './net/premio';
+import { darPremio, darPremioIA, type AdvInfo } from './net/premio';
 import { aplicarNE } from './net/elo';
 import { ensureUser, obtenerAvatar } from './net/firebase';
 import { openAdventure, closeAdventure, rivalImg } from './adventure/adventure';
-import { NATIONS, markWon, nextRival, type Rival } from './adventure/rivals';
+import { NATIONS, beaten, markWon, nextRival, progress, type Rival } from './adventure/rivals';
 
 const app = document.getElementById('app')!;
 const pv = document.createElement('div'); pv.className = 'preview'; document.body.append(pv);
@@ -333,7 +333,7 @@ function render() {
   prevHp = new Map(); lastBoard = [[], []];
   ghostCache = new Map();
   s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); ghostCache.set(u.uid, { id: u.card, u: { ...u, kw: [...u.kw] } }); }));
-  if (s.winner !== null && !ended) { ended = true;if (adv && !adv.free && s.winner === 0) markWon(adv.nation, adv.rival.id); if (s.winner !== -1) (online ? darPremio(online.code, s.winner === 0) : darPremioIA(s.winner === 0)).catch(() => {}); if (online && s.winner !== -1 && online.isReady) { const w = s.winner === 0; aplicarNE(online.code, w, s.p[0].nexus, s.p[1].nexus).then(r => { if (r) toast(`${r.delta >= 0 ? '▲' : '▼'} ${r.delta >= 0 ? '+' : ''}${r.delta} NE · ahora ${r.despues} NE`); }).catch(() => {}); } if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
+  if (s.winner !== null && !ended) { ended = true;let avt: AdvInfo | undefined; if (adv && !adv.free && s.winner === 0) { const primera = !beaten(adv.nation, adv.rival.id); markWon(adv.nation, adv.rival.id); if (primera) avt = { nacion: NATIONS[adv.nation].name, rival: adv.rival.name, jefe: !!adv.rival.boss, conquista: progress(adv.nation) === NATIONS[adv.nation].rivals.length }; } if (s.winner !== -1) (online ? darPremio(online.code, s.winner === 0) : darPremioIA(s.winner === 0, avt)).catch(() => {}); if (online && s.winner !== -1 && online.isReady) { const w = s.winner === 0; aplicarNE(online.code, w, s.p[0].nexus, s.p[1].nexus).then(r => { if (r) toast(`${r.delta >= 0 ? '▲' : '▼'} ${r.delta >= 0 ? '+' : ''}${r.delta} NE · ahora ${r.despues} NE`); }).catch(() => {}); } if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
   logv.innerHTML = log; chatEl.hidden = !chatOpen;
 }
 // ---------- Acciones ----------
@@ -484,7 +484,18 @@ function startOnline() {
 // Foto de perfil del Portal: va en tu óvalo (emoji o imagen). Si no hay sesión o falla, queda el avatar de siempre.
 let myAvatar = '';
 const isImg = (v: string) => /^(https?:|data:image\/|\/)/.test(v);
-if (!import.meta.env.DEV) ensureUser().then(() => obtenerAvatar()).then(a => { if (a) { myAvatar = a; if (!pumping && !busy) render(); } }).catch(() => {});
+// El Portal guarda en el perfil el id de la imagen (p. ej. "esc"); su archivo sale de avatares.json del Portal. También acepta emoji, URL o data:.
+const PORTAL = 'https://apexora.github.io/Portal/';
+const resolveAva = async (v: string) => {
+  v = (v || '').trim();
+  if (/^(https?:|data:image\/)/.test(v)) return v;
+  try {
+    const l = await (await fetch(PORTAL + 'avatares/avatares.json', { cache: 'no-cache' })).json() as { id: string; archivo: string }[];
+    const a = l.find(x => x.id === v); if (a) return PORTAL + 'avatares/' + encodeURIComponent(a.archivo);
+  } catch { /* sin lista: se prueba como emoji */ }
+  return !/^[\w-]*$/.test(v) && [...v].length <= 4 ? v : '';   // solo un emoji corto se pinta como texto; un id sin imagen no
+};
+if (!import.meta.env.DEV) ensureUser().then(() => obtenerAvatar()).then(resolveAva).then(r => { if (r) { myAvatar = r; if (!pumping && !busy) render(); } }).catch(() => {});
 const savedRoom = Online.savedCode();
 if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
 
