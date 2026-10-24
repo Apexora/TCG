@@ -83,6 +83,25 @@ ok(gs.p[1 - gst].board[0].dmg === 1 && gs.p[gst].board[0].atk === 2 && gs.p[gst]
 let e2 = fresh(); const et = e2.token; e2.p[et].hand = ['pon_pose']; mine(e2).board = [U(1, 'pon_modelo', 2, 2, ['estilo'])];
 e2 = step(e2, { type: 'play', hand: 0, target: 1 }); const eu = e2.p[et].board[0];
 ok(eu.atk + eu.ta === 5 && eu.hp + eu.th === 3, 'Estilo: +1/+1 al lanzar un hechizo (+2 de la Pose)');
+// Drenar: la curación es FIJA (3), aunque la Barrera absorba todo el daño
+let dr = fresh(); const drt = dr.token; dr.p[drt].hand = ['umb_drenar']; dr.p[drt].nexus = 10; dr.p[1 - drt].board = [U(2, 'lum_centinela', 2, 2, ['barrera'])];
+dr = step(dr, { type: 'play', hand: 0, target: 2 }); dr = step(dr, { type: 'pass' });
+ok(dr.p[drt].nexus === 13 && dr.p[1 - drt].board[0].dmg === 0, 'Drenar: cura 3 fijos aunque no cause daño (Barrera)');
+let dr2 = fresh(); const drt2 = dr2.token; dr2.p[drt2].hand = ['umb_drenar']; dr2.p[drt2].nexus = 10; dr2.p[1 - drt2].board = [U(2, 'lum_vigia', 1, 1)];
+dr2 = step(dr2, { type: 'play', hand: 0, target: 2 }); dr2 = step(dr2, { type: 'pass' });
+ok(dr2.p[drt2].nexus === 13, 'Drenar: cura 3 aunque el objetivo solo tuviera 1 de vida');
+// Bloqueo: un bloqueador ya asignado se puede MOVER a otro atacante
+let bm = fresh(); const bat = bm.token, bdf = 1 - bat as 0 | 1;
+bm.p[bat].board = [U(1, 'umb_lobo', 2, 2), U(2, 'umb_lobo', 2, 2)]; bm.p[bdf].board = [U(3, 'lum_centinela', 2, 3), U(4, 'lum_centinela', 2, 3)];
+bm = step(bm, { type: 'attack', units: [0, 1] });
+bm = step(bm, { type: 'block', attacker: 0, blocker: 0 }); ok(bm.blocks['1'] === 3, 'bloqueo asignado');
+bm = step(bm, { type: 'block', attacker: 1, blocker: 0 }); ok(bm.blocks['1'] === undefined && bm.blocks['2'] === 3, 'el bloqueador se mueve al otro atacante');
+bm = step(bm, { type: 'block', attacker: 1, blocker: 0 }); ok(bm.blocks['2'] === undefined, 'pulsar de nuevo lo quita');
+// ...pero no si lo impone un Retador
+let bf = fresh(); const fat = bf.token, fdf = 1 - fat as 0 | 1;
+bf.p[fat].board = [U(1, 'lum_lider', 4, 5, ['retador']), U(2, 'umb_lobo', 2, 2)]; bf.p[fdf].board = [U(3, 'lum_centinela', 2, 3)];
+bf = step(bf, { type: 'attack', units: [0, 1] }); const before = bf;
+bf = step(bf, { type: 'block', attacker: 1, blocker: 0 }); ok(bf === before && bf.blocks['1'] === 3, 'el bloqueo forzado por Retador no se mueve');
 }
 console.log(fails ? `${fails} fallo(s)` : 'Reglas v3 verificadas: mulligan, rondas, maná de hechizo, bloqueo, rápido, arrollar, elusivo, barrera + mecánicas de naciones (Mutante, Don, Leal, Clonar, Fusión, Tregua, Chicle, Cerrojo, Peaje, Raíz, Poda, Gas, Estilo).');
 process.exit(fails ? 1 : 0);

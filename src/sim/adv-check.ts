@@ -1,9 +1,9 @@
 // Comprueba los mazos de la Aventura y mide su dureza (IA nivel del rival vs. IA al máximo con mazos de serie).
 declare const process: { exit(n: number): never; env: Record<string, string | undefined> };
-import { NATIONS, DECK_LEN, MAX_COPIES } from '../adventure/rivals';
+import { NATIONS, DECK_LEN, MAX_COPIES, edgeOf } from '../adventure/rivals';
 import { CARDS, DECKS } from '../data/cards';
 import { aiAction } from '../ai/ai';
-import { newGame, step } from '../engine/engine';
+import { applyEdge, newGame, step } from '../engine/engine';
 let bad = 0; const ok = (c: boolean, m: string) => { if (!c) { console.log('✗', m); bad++; } };
 for (const n of Object.values(NATIONS)) for (const r of n.rivals) {
   ok(r.deck.length === DECK_LEN, `${r.name}: ${r.deck.length} cartas`);
@@ -16,7 +16,7 @@ for (const n of Object.values(NATIONS)) for (const r of n.rivals) for (const min
   if (ONLY.length && !ONLY.includes(n.id)) continue;
   let w = 0, st = 0;
   for (let g = 0; g < N; g++) {
-    let s = newGame([DECKS[mine], r.deck], g + 1);
+    let s = applyEdge(newGame([DECKS[mine], r.deck], g + 1), 1, edgeOf(r));
     for (let t = 0; t < 3000 && s.winner === null; t++) {
       const a = s.active === 0 ? aiAction(s, 5) : aiAction(s, r.level);
       const nx = step(s, a); if (nx === s && a.type !== 'pass') { s = step(s, { type: 'pass' }); } else s = nx; if (nx === s && a.type === 'pass') { /* nada */ }

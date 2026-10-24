@@ -1,5 +1,5 @@
-// Constructor de mazos: elige 30 cartas (máx. 2 copias de cada una), ponles nombre y guárdalos junto a los predeterminados.
-import { CARDS, LUMINARAE, UMBRA } from '../data/cards';
+// Constructor de mazos: elige 40 cartas (máx. 2 copias de cada una), ponles nombre y guárdalos junto a los predeterminados.
+import { CARDS, DECKS, LUMINARAE, UMBRA } from '../data/cards';
 import { NATION_CARDS } from '../data/nations';
 import { NATIONS } from '../adventure/rivals';
 import { KWD, KWN, SPD, SPN } from './keywords';
@@ -12,8 +12,8 @@ const NATS: [string, string, string, string][] = ([['lum', 'Luminarae', '#f2d58a
   ['bor', 'Boro', '#ff3fa4', 'boro'], ['ska', 'Skaldrum', '#e0a040', 'skaldrum'], ['mkv', 'Markivton', '#ff7a45', 'markivton'], ['tsk', 'Tribus Skaldrak', '#bfe6ff', 'tribus'],
   ['psy', 'Psybernia', '#d49a6a', 'psybernia'], ['sin', 'Sinfalía', '#ffd84d', 'sinfalia'], ['ost', 'Ostraca', '#9db4d6', 'ostraca'], ['pon', 'Pongí', '#ff8fd0', 'pongi'],
   ['krn', 'Krahn', '#a3a58b', 'presidio'], ['syl', 'Sylvaris', '#b08a4a', 'sylvaris'], ['dsj', 'Disnjav', '#c6ff3d', 'disnjav']] as [string, string, string, string][]).sort((x, y) => x[1].localeCompare(y[1]));
-/** Mazo de 30 para copiar: Luminarae/Umbra tal cual; las demás naciones, el núcleo del mazo de su jefe. */
-const copyOf = (k: string): string[] => k === 'lum' ? LUMINARAE.map(c => c.id) : k === 'umb' ? UMBRA.map(c => c.id) : (NATIONS[NATS.find(n => n[0] === k)![3]]?.rivals.at(-1)?.deck ?? []).slice(0, DECK_SIZE);
+/** Mazo de 40 para copiar: Luminarae/Umbra tal cual; las demás naciones, el núcleo del mazo de su jefe. */
+const copyOf = (k: string): string[] => k === 'lum' ? [...DECKS.Luminarae] : k === 'umb' ? [...DECKS.Umbra] : (NATIONS[NATS.find(n => n[0] === k)![3]]?.rivals.at(-1)?.deck ?? []).slice(0, DECK_SIZE);
 const NAT_CSS = NATS.map(([k, , c]) => `.dk .dk-t.${k}{border-color:${c}aa}.dk-list li.${k}{border-left-color:${c}}`).join('\n');
 
 const CSS = NAT_CSS + `

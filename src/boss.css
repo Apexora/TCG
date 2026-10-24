@@ -1,0 +1,26 @@
+/* Duelo contra un jefe final: viñeta que respira, brasas, aura del Nexo rival y presentación a pantalla completa. */
+body.boss{--boss:#d8283c;--boss2:#ff7a45}
+body.boss[data-bn=luminarae]{--boss:#e8c35a;--boss2:#fff3c4}body.boss[data-bn=umbra]{--boss:#8a35ff;--boss2:#ff3f6c}
+body.boss[data-bn=arboris]{--boss:#4cc24f;--boss2:#c8ff6a}body.boss[data-bn=lumis]{--boss:#25d4ff;--boss2:#9af0ff}
+body.boss #app{filter:saturate(.82) contrast(1.1) brightness(.9)}
+body.boss::before{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 38%,#000d 100%),radial-gradient(ellipse at 50% 120%,color-mix(in srgb,var(--boss) 55%,transparent),transparent 55%);animation:bossBreath 4.2s ease-in-out infinite}
+body.boss::after{content:"";position:fixed;inset:0;z-index:61;pointer-events:none;opacity:.55;mix-blend-mode:screen;background-image:radial-gradient(2px 2px at 10% 100%,var(--boss2),transparent),radial-gradient(3px 3px at 30% 100%,var(--boss),transparent),radial-gradient(2px 2px at 55% 100%,var(--boss2),transparent),radial-gradient(3px 3px at 75% 100%,var(--boss),transparent),radial-gradient(2px 2px at 92% 100%,var(--boss2),transparent);background-size:100% 100%;animation:bossEmbers 7s linear infinite}
+body.boss.enraged::before{animation-duration:1.5s}body.boss.enraged::after{animation-duration:3.2s;opacity:.85}
+body.boss .pt.foe .ava{box-shadow:0 0 0 3px var(--boss),0 0 28px var(--boss),0 0 60px color-mix(in srgb,var(--boss) 60%,transparent);animation:bossAura 2.4s ease-in-out infinite}
+body.boss .pt.foe .orb{box-shadow:0 0 22px var(--boss);border-color:var(--boss)}
+body.boss .header-state .rd::after{content:" · ☠ JEFE";color:var(--boss2);font-weight:800;letter-spacing:.1em}
+body.boss.enraged .stage{animation:bossShake 5s ease-in-out infinite}
+@keyframes bossBreath{0%,100%{opacity:.75}50%{opacity:1}}
+@keyframes bossEmbers{from{transform:translateY(0)}to{transform:translateY(-100vh)}}
+@keyframes bossAura{0%,100%{filter:brightness(1)}50%{filter:brightness(1.35)}}
+@keyframes bossShake{0%,92%,100%{transform:none}94%{transform:translate(-2px,1px)}96%{transform:translate(2px,-1px)}98%{transform:translate(-1px,0)}}
+.bossintro{position:fixed;inset:0;z-index:9200;display:grid;place-content:center;gap:10px;text-align:center;cursor:pointer;color:#fff;background:radial-gradient(ellipse at center,#1a0509ee,#000 75%);animation:biIn .5s ease both}
+.bossintro.out{animation:biOut .7s ease forwards}
+.bossintro small{font:700 14px Oxanium,sans-serif;letter-spacing:.6em;color:var(--boss2,#ff7a45);animation:biRise 1.2s .2s both}
+.bossintro h2{margin:0;font:800 clamp(44px,9vw,120px)/1 Cinzel,serif;letter-spacing:.12em;text-transform:uppercase;text-shadow:0 0 30px var(--boss,#d8283c),0 0 90px var(--boss,#d8283c);animation:biSlam 1s .5s cubic-bezier(.2,1.6,.4,1) both}
+.bossintro p{margin:0;font:italic 600 20px Cormorant Garamond,serif;color:#e8d8d8;opacity:.9;animation:biRise 1.2s 1.2s both}
+.bossintro i{display:block;width:min(520px,70vw);height:2px;margin:6px auto;background:linear-gradient(90deg,transparent,var(--boss,#d8283c),transparent);animation:biLine 1.4s .4s both}
+@keyframes biIn{from{opacity:0}}@keyframes biOut{to{opacity:0;transform:scale(1.08)}}
+@keyframes biRise{from{opacity:0;transform:translateY(14px)}}@keyframes biLine{from{transform:scaleX(0)}}
+@keyframes biSlam{0%{opacity:0;transform:scale(2.4);filter:blur(12px)}100%{opacity:1;transform:none;filter:none}}
+@media (prefers-reduced-motion:reduce){body.boss::before,body.boss::after,body.boss .pt.foe .ava,body.boss.enraged .stage{animation:none}}

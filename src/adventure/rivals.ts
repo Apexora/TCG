@@ -13,6 +13,12 @@ function build(faction: string, core: string[]): string[] {
   return out;
 }
 
+import type { Edge } from '../engine/engine';
+/** Ventaja por dificultad: los rivales fuertes empiezan con más Nexo y los jefes, además, con maná y robo extra. */
+/** Ajuste fino para rivales cuyo mazo rinde menos de lo que su nivel merece (medido con `npm run test:adv`). */
+const EXTRA: Record<string, Edge> = { inargo: { nexus: 40, mana: 4, draw: 1 }, 'gran-raiz': { nexus: 40, mana: 4, draw: 1 }, henry: { nexus: 15, mana: 1, draw: 1 } };
+export const edgeOf = (r: Rival): Edge | undefined => EXTRA[r.id] ??
+  (r.boss ? { nexus: 15, mana: 1, draw: 1 } : r.level >= 5 ? { nexus: 8 } : r.level === 4 ? { nexus: 4 } : undefined);
 export interface Rival { id: string; name: string; level: 1 | 2 | 3 | 4 | 5; tag: string; deck: string[]; boss?: boolean; imgs: string[] }
 export interface Nation { id: string; name: string; rivals: Rival[] }
 

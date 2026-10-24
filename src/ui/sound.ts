@@ -12,6 +12,9 @@ export function toggleMute(): boolean {
 }
 /** 0 = calma, 1 = combate/pila: la música añade pulso y brillo. */
 export function setTension(v: number) { tension = v; }
+/** Duelo contra un jefe final: música más grave y amenazante (latido constante, bajo continuo y tensión mínima alta). */
+let boss = false;
+export function setBoss(on: boolean) { boss = on; }
 const mf = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -115,6 +118,8 @@ const R: Record<string, () => void> = {
   hurt: () => { const t = T0(); tom(t, 45, 1); voice(mf(40), t, 0.5, { type: 'sawtooth', vol: 0.18, lp: 1200, lpEnd: 120, bus: drive }); noise(t, 0.35, { type: 'lowpass', f0: 2500, f1: 100, vol: 0.3 }); fm(mf(79), t + 0.02, 1.2, { ratio: 1.41, idx: 2, vol: 0.04 }); },
   heal: () => { const t = T0(); [74, 78, 81, 86].forEach((n, k) => fm(mf(n), t + k * 0.08, 1.4, { vol: 0.06, ratio: 2, idx: 0.8, pan: -0.3 + k * 0.2 })); [62, 69].forEach(n => voice(mf(n), t, 1.6, { vol: 0.08, att: 0.3, pad: true })); },
   death: () => { const t = T0(); voice(mf(55), t, 1, { type: 'sawtooth', vol: 0.14, slide: -14, lp: 2500, lpEnd: 100, det: 14 }); noise(t, 0.9, { f0: 3000, f1: 150, q: 0.6, vol: 0.16 }); tom(t + 0.05, 42, 0.7); },
+  boss: () => { const t = T0(); [1, 1.41, 2.0, 2.83, 4.1].forEach((r, k) => voice(mf(31) * r, t, 4.6 - k * 0.5, { type: 'sawtooth', vol: 0.12 / (k + 1), lp: 900, det: 12, pan: (k % 2 ? 1 : -1) * 0.3 }));
+    tom(t, 38, 1); tom(t + 0.5, 34, 0.9); tom(t + 1.1, 30, 1); noise(t, 2.2, { type: 'lowpass', f0: 150, f1: 2800, vol: 0.22, att: 1.6 }); },
   round: () => { const t = T0(); [1, 2.32, 3.17, 4.1, 5.4].forEach((r, k) => voice(mf(43) * r, t, 3.6 - k * 0.4, { vol: 0.09 / (k + 1), pan: (k % 2 ? 1 : -1) * 0.2 })); tom(t, 52, 0.8); noise(t, 0.5, { f0: 500, f1: 3000, vol: 0.06, att: 0.4 }); },
   win: () => { const t = T0(); ([[62, 66, 69, 74], [67, 71, 74, 79], [69, 73, 76, 81, 86]] as number[][]).forEach((ch, i) => { ch.forEach((n, k) => { voice(mf(n), t + i * 0.45, 1.9, { type: 'triangle', vol: 0.055, lp: 5000, pan: (k - 2) * 0.2 }); fm(mf(n + 12), t + i * 0.45 + 0.02 * k, 1.8, { vol: 0.03, ratio: 2, idx: 0.7 }); }); }); tom(t + 0.9, 50, 0.8); },
   lose: () => { const t = T0(); [62, 60, 57, 55, 50].forEach((n, k) => voice(mf(n), t + k * 0.5, 2, { type: 'sawtooth', vol: 0.07, lp: 900, lpEnd: 150, det: 10, att: 0.1 })); voice(mf(26), t, 3, { vol: 0.2, att: 0.4, pad: true }); },
@@ -196,7 +201,7 @@ const BEAT = 60 / 72, BAR = BEAT * 4;
 const ROOTS = [38, 34, 41, 36], CHORDS = [[62, 65, 69, 74], [58, 62, 65, 70], [57, 60, 65, 69], [55, 60, 64, 67]], PENT = [62, 65, 67, 69, 72, 74, 77];
 function bar(t: number, i: number) {
   if (muted || document.hidden) return;
-  tensionNow += (tension - tensionNow) * 0.5;
+  tensionNow += (Math.max(tension, boss ? 0.75 : 0) - tensionNow) * 0.5;
   const c = i % 4, ch = CHORDS[c], tn = tensionNow, mb = musicBus;
   ch.forEach((n, k) => voice(mf(n), t, BAR * 1.08, { type: 'sawtooth', vol: 0.02, att: 1.2, pad: true, rel: 1.3, lp: 650 + tn * 900, det: 8 + k * 2, pan: (k - 1.5) * 0.35, bus: mb }));
   voice(mf(ROOTS[c]), t, BAR * 1.02, { vol: 0.15, att: 0.25, pad: true, rel: 1, bus: mb });
@@ -204,6 +209,11 @@ function bar(t: number, i: number) {
   pat.forEach((p, k) => { if (Math.random() < (tn ? 0.9 : 0.7)) { const n = ch[p] + (k % 4 === 3 && Math.random() < 0.4 ? 12 : 0) + 12;
     voice(mf(n), t + k * BEAT / 2, 1.1, { type: 'triangle', vol: 0.035 + tn * 0.01, pan: Math.sin(k) * 0.5, bus: mb }); } });
   if (i % 2 === 0 && Math.random() < 0.7) fm(mf(PENT[Math.floor(Math.random() * PENT.length)] + 12), t + BEAT * (Math.random() < 0.5 ? 0 : 2), 3, { vol: 0.045, ratio: 2, idx: 0.7, pan: rnd(-0.5, 0.5), bus: mb });
+  if (boss) {   // jefe: bajo continuo disonante y latido en cada pulso
+    voice(mf(ROOTS[c] - 12), t, BAR * 1.05, { type: 'sawtooth', vol: 0.09, att: 0.4, pad: true, rel: 1, lp: 260, bus: mb });
+    voice(mf(ROOTS[c] + 6), t, BAR, { type: 'sawtooth', vol: 0.018, att: 0.8, pad: true, rel: 1, lp: 500, det: 14, bus: mb });
+    for (let b = 0; b < 4; b++) tom(t + b * BEAT, 40, b % 2 ? 0.2 : 0.34, mb);
+  }
   if (c === 0) tom(t, 44, 0.35, mb);
   if (tn > 0.5) for (let b = 0; b < 4; b++) tom(t + b * BEAT, b % 2 ? 80 : 58, b === 2 ? 0.28 : 0.18, mb);
   for (let k = 0; k < 4; k++) if (Math.random() < 0.6) noise(t + rnd(0, BAR), 0.03, { type: 'highpass', f0: 4000, f1: 3000, vol: rnd(0.008, 0.02), pan: rnd(-0.8, 0.8), bus: mb });

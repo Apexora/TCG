@@ -16,7 +16,7 @@ function draw(s: State, i: number, n: number) {
     if (p.hand.length < 10) p.hand.push(c);        // mano llena: la carta se pierde
   }
 }
-const heal = (s: State, i: number, n: number) => { s.p[i].nexus = Math.min(20, s.p[i].nexus + n); };
+const heal = (s: State, i: number, n: number) => { s.p[i].nexus = Math.min(s.cap?.[i] ?? 20, s.p[i].nexus + n); };
 export const atkOf = (u: Unit) => Math.max(0, u.atk + u.ta);
 export const curHp = (u: Unit) => u.hp + u.th - u.dmg;
 const kill = (u: Unit) => { u.dmg = u.hp + u.th + 999; };
@@ -66,6 +66,15 @@ export function newGame(decks: [string[], string[]], seed: number): State {
   s.token = rand(s) < 0.5 ? 0 : 1; // startRound lo invierte
   return s;
 }
+/** Ventaja de un rival (Aventura): Nexo inicial extra, maná inicial extra y cartas extra por ronda. Solo para partidas contra la IA. */
+export interface Edge { nexus?: number; mana?: number; draw?: number }
+export function applyEdge(s: State, i: 0 | 1, e: Edge | undefined): State {
+  if (!e) return s;
+  const p = s.p[i]; p.nexus += e.nexus ?? 0; p.maxMana += e.mana ?? 0;
+  s.cap = s.cap ?? [20, 20]; s.cap[i] = Math.max(20, p.nexus);
+  if (e.draw) { s.extraDraw = s.extraDraw ?? [0, 0]; s.extraDraw[i] = e.draw; }
+  return s;
+}
 function mulligan(s: State, i: number, idx: number[]) {
   const p = s.p[i], set = [...new Set(idx)].filter(k => k >= 0 && k < p.hand.length).sort((a, b) => b - a);
   for (const k of set) p.deck.push(p.hand.splice(k, 1)[0]);
@@ -76,7 +85,7 @@ function startRound(s: State) {
   if (s.round > 40) { s.winner = -1; return; }
   s.token = o(s.token); s.active = s.token; s.phase = 'main'; s.passes = 0; s.attackers = []; s.blocks = {}; s.forced = []; s.stack = [];
   s.tok = [false, false]; s.tok[s.token] = true; s.peace = false;
-  for (const i of [s.token, o(s.token)]) { const p = s.p[i]; p.maxMana = Math.min(10, p.maxMana + 1); p.mana = p.maxMana; draw(s, i, 1); if (s.winner !== null) return; }
+  for (const i of [s.token, o(s.token)]) { const p = s.p[i]; p.maxMana = Math.min(10, p.maxMana + 1); p.mana = p.maxMana; draw(s, i, 1 + (s.extraDraw?.[i] ?? 0)); if (s.winner !== null) return; }
   s.log = s.log.slice(-40); s.log.push(`— Ronda ${s.round} (ficha: J${s.token + 1}) —`); checkWin(s);
 }
 function endRound(s: State) {
@@ -146,7 +155,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'buffAll': me.board.forEach(u => { u.atk += e.a; u.hp += e.h; }); break;
     case 'giveKw': { const t = tgt ?? strongest(me.board); if (t && !t.kw.includes(e.kw as Keyword)) t.kw.push(e.kw); break; }
     case 'dmgEnemy': { const t = tgt ?? strongest(foe.board); if (t) dealDamage(s, t, e.n); break; }
-    case 'drain': { const t = tgt ?? strongest(foe.board); if (t) heal(s, i, dealDamage(s, t, e.n)); break; }
+    case 'drain': { const t = tgt ?? strongest(foe.board); if (t) { dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
     case 'dmgAll': foe.board.forEach(u => dealDamage(s, u, e.n)); break;
     case 'frost': { const t = tgt ?? strongest(foe.board); if (t) t.ta -= atkOf(t); break; }
     case 'sacDraw': { const v = weakest(me.board.filter(u => u !== src)); if (v) { kill(v); cleanup(s); draw(s, i, e.n); } break; }
@@ -310,7 +319,12 @@ export function step(s0: State, a: Action): State {
     if (!attacker || !blocker || !s.attackers.includes(attacker.uid) || s.forced.includes(attacker.uid) || !canBlock(attacker, blocker)) return s0;
     const key = String(attacker.uid);
     if (s.blocks[key] === blocker.uid) delete s.blocks[key];                      // pulsar otra vez = quitar bloqueo
-    else { if (Object.values(s.blocks).includes(blocker.uid)) return s0; s.blocks[key] = blocker.uid; }
+    else {
+      // Un bloqueador ya asignado se puede MOVER a otro atacante (salvo que lo fuerce un Retador).
+      const prev = Object.keys(s.blocks).find(k => s.blocks[k] === blocker.uid);
+      if (prev !== undefined) { if (s.forced.includes(Number(prev))) return s0; delete s.blocks[prev]; }
+      s.blocks[key] = blocker.uid;
+    }
   }
   return s;
 }

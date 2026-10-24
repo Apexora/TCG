@@ -6,7 +6,7 @@ export type SpellSpeed = 'burst' | 'focus' | 'fast' | 'slow';
 export type Effect =
   | { t: 'healNexus'; n: number } | { t: 'hurtNexus'; n: number } | { t: 'draw'; n: number } | { t: 'dmgNexus'; n: number }
   | { t: 'buffOther'; a: number; h: number } | { t: 'buffAll'; a: number; h: number } | { t: 'buffAlly'; a: number; h: number } | { t: 'tempBuff'; a: number; h: number }
-  | { t: 'giveKw'; kw: Keyword } | { t: 'dmgEnemy'; n: number } | { t: 'drain'; n: number } | { t: 'dmgAll'; n: number } | { t: 'frost' }
+  | { t: 'giveKw'; kw: Keyword } | { t: 'dmgEnemy'; n: number } | { t: 'drain'; n: number; heal?: number } | { t: 'dmgAll'; n: number } | { t: 'frost' }
   | { t: 'healUnit'; n: number } | { t: 'tempBuffAll'; a: number; h: number } | { t: 'sacDraw'; n: number } | { t: 'sacDmg' } | { t: 'debuffEnemies'; a: number; h: number } | { t: 'destroyEnemy' }
   | { t: 'summon'; card: string; n: number } | { t: 'frostAll' } | { t: 'silence' } | { t: 'gainMana'; n: number }
   // Naciones de la Aventura
@@ -24,6 +24,8 @@ export interface State {
   mull: [boolean, boolean];
   /** Tregua (Sinfalía): esta ronda nadie puede atacar. */
   peace?: boolean;
+  /** Ventaja de un rival de la Aventura: tope de Nexo por jugador y cartas extra por ronda (solo contra la IA). */
+  cap?: [number, number]; extraDraw?: [number, number];
   /** Gas tóxico (Disnjav): rondas que le quedan; al cerrar cada ronda daña a las unidades sin Adaptado. */
   gas?: number;
 }

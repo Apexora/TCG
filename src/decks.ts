@@ -2,7 +2,7 @@
 import { CARDS, DECKS } from './data/cards';
 import { NATIONS, progress } from './adventure/rivals';
 
-export const DECK_SIZE = 30;     // los mazos personalizados deben tener exactamente 30 cartas
+export const DECK_SIZE = 40;     // todos los mazos (predeterminados, de nación, personalizados y de rivales) tienen exactamente 40 cartas
 export const MAX_COPIES = 2;     // copias máximas de una misma carta (como en los mazos predeterminados)
 export type Faction = 'Luminarae' | 'Umbra';
 export interface CustomDeck { id: string; name: string; cards: string[] }
@@ -23,11 +23,19 @@ export function deckError(cards: unknown): string | null {
 }
 
 // ---------- Persistencia ----------
+/** Migración: los mazos guardados de 30 cartas (versión anterior) se completan hasta 40 con copias de cartas de su misma facción mayoritaria. */
+function padOld(c: unknown): unknown {
+  if (!Array.isArray(c) || c.length >= DECK_SIZE || c.some(id => typeof id !== 'string' || !has(CARDS, id))) return c;
+  const out = [...c] as string[], n: Record<string, number> = {}; out.forEach(id => { n[id] = (n[id] || 0) + 1; });
+  const pool = out.filter(id => id.startsWith('umb')).length * 2 > out.length ? DECKS.Umbra : DECKS.Luminarae;
+  for (const id of pool) if (out.length < DECK_SIZE && (n[id] || 0) < MAX_COPIES) { out.push(id); n[id] = (n[id] || 0) + 1; }
+  return out;
+}
 const KD = 'tcgCustomDecks', KS = 'tcgDeck';
 let list: CustomDeck[] = [];
 try {
   const r = JSON.parse(localStorage.getItem(KD) || '[]');
-  if (Array.isArray(r)) list = r.filter(d => d && typeof d.id === 'string' && typeof d.name === 'string' && !deckError(d.cards));
+  if (Array.isArray(r)) list = r.filter(d => d && typeof d.id === 'string' && typeof d.name === 'string').map(d => ({ ...d, cards: padOld(d.cards) })).filter(d => !deckError(d.cards));
 } catch { /* vacío */ }
 const persist = () => { try { localStorage.setItem(KD, JSON.stringify(list)); } catch { /* sin espacio */ } };
 

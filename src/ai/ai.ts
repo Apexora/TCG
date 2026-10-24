@@ -51,7 +51,7 @@ function baseAction(s: State): Action {
     for (const a of atk.filter(u => s.blocks[String(u.uid)] === undefined).sort((x, y) => atkOf(y) - atkOf(x))) {
       const c = me.board.map((u, k) => ({ u, k })).filter(x => !used.has(x.u.uid) && canBlock(a, x.u));
       const pick = c.find(x => atkOf(x.u) >= curHp(a) && curHp(x.u) > atkOf(a)) ?? c.find(x => (atkOf(x.u) >= curHp(a) || x.u.kw.includes('letal')) && atkOf(a) >= 3)
-        ?? (me.nexus <= total ? c.sort((x, y) => curHp(y.u) - curHp(x.u))[0] : undefined);
+        ?? (me.nexus <= total + 4 ? c.sort((x, y) => curHp(y.u) - curHp(x.u))[0] : undefined);   // con la vida en peligro bloquea aunque sea para frenar daño
       if (pick) return { type: 'block', attacker: s.p[s.token].board.indexOf(a), blocker: pick.k };
     }
     return { type: 'confirmBlocks' };
@@ -64,7 +64,7 @@ function baseAction(s: State): Action {
   if (s.tok[i] && !s.attackers.length && !s.peace) {
     const ready = me.board.map((u, k) => ({ u, k })).filter(x => canAttack(x.u));
     const lethal = ready.reduce((a, x) => a + atkOf(x.u), 0) >= foe.nexus;
-    const go = ready.filter(({ u }) => lethal || !foe.board.length || u.kw.includes('barrera') || u.kw.includes('elusivo') || foe.board.every(b => atkOf(b) < curHp(u) && !b.kw.includes('letal')));
+    const go = ready.filter(({ u }) => lethal || !foe.board.length || u.kw.includes('barrera') || foe.board.every(b => !canBlock(u, b) || (atkOf(b) < curHp(u) && !b.kw.includes('letal'))));
     if (go.length) return { type: 'attack', units: go.map(x => x.k) };
   }
   return { type: 'pass' };
@@ -73,12 +73,22 @@ function baseAction(s: State): Action {
 /** Probabilidad de que la IA "se despiste" por nivel (5 = juego completo, como hasta ahora). */
 const SLIP: Record<number, number> = { 1: 0.32, 2: 0.2, 3: 0.12, 4: 0.05, 5: 0 };
 /** IA con nivel 1-5 (la Aventura). Nivel 5 y sin nivel = comportamiento original. Los despistes solo afectan a decisiones
- *  voluntarias: no bloquear, no jugar la carta, atacar con menos unidades. Nunca devuelve una jugada ilegal. */
+ *  voluntarias y nunca dejan al rival "sin hacer nada": con el tablero vacío siempre juega, y con la vida en peligro siempre bloquea.
+ *  Nunca devuelve una jugada ilegal. */
 export function aiAction(s: State, level = 5): Action {
   const a = baseAction(s), slip = SLIP[level] ?? 0;
   if (!slip || Math.random() >= slip) return a;
-  if (a.type === 'block') return { type: 'confirmBlocks' };
-  if (a.type === 'play' && s.phase === 'main') return { type: 'pass' };
+  const i = s.active, me = s.p[i];
+  if (a.type === 'block') {
+    const atk = s.attackers.map(uid => s.p[s.token].board.find(u => u.uid === uid)).filter((u): u is Unit => !!u);
+    return me.nexus <= atk.reduce((t, u) => t + atkOf(u), 0) + 4 ? a : { type: 'confirmBlocks' };
+  }
+  if (a.type === 'play' && s.phase === 'main') {
+    // Se despista jugando una carta menos conveniente (no pasando): así el rival no se queda parado
+    const alt = me.hand.map((id, k) => k).filter(k => k !== a.hand && CARDS[me.hand[k]].type === 'unit' && canPlay(s, i, k));
+    if (me.board.length === 0 || !alt.length) return a;
+    return { type: 'play', hand: alt[Math.floor(Math.random() * alt.length)] };
+  }
   if (a.type === 'attack' && a.units.length > 1) return { type: 'attack', units: a.units.slice(0, Math.ceil(a.units.length / 2)) };
   return a;
 }

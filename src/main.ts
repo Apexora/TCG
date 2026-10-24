@@ -3,11 +3,12 @@ import './fx.css';
 import './v3.css';
 import './apexora-theme.css';
 import './nations.css';
+import './boss.css';
 import { hideMenu, initFx, showMenu } from './ui/fx';
 import { deckCards, deckFaction, deckLabel, getDeck, otherDeck, wireDeck } from './decks';
 import { CARDS, DECKS } from './data/cards';
 import { aiAction } from './ai/ai';
-import { atkOf, canAttack, canBlock, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
+import { applyEdge, atkOf, canAttack, canBlock, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
 import { KWD, KWI, KWN, SPD, SPN } from './ui/keywords';
@@ -16,7 +17,7 @@ import { clashFx, trailFx } from './ui/combatfx';
 import { gsap } from 'gsap';
 import { motionPlay, motionSnapshot } from './ui/motion';
 import { LocalChannel } from './ui/chat';
-import { isMuted, setTension, sfx, sfxCard, startMusic, toggleMute } from './ui/sound';
+import { isMuted, setBoss, setTension, sfx, sfxCard, startMusic, toggleMute } from './ui/sound';
 import { Online } from './net/online';
 import { applyMove, toView, view, type Seat } from './net/sync';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
@@ -24,33 +25,37 @@ import { darPremio, darPremioIA, type AdvInfo } from './net/premio';
 import { aplicarNE } from './net/elo';
 import { ensureUser, obtenerAvatar, registrarActividad } from './net/firebase';
 import { openAdventure, closeAdventure, rivalImg } from './adventure/adventure';
-import { NATIONS, PLAYABLE, beaten, markWon, nextRival, progress, type Rival } from './adventure/rivals';
+import { NATIONS, PLAYABLE, beaten, faction, markWon, nextRival, progress, edgeOf, type Rival } from './adventure/rivals';
 
 const app = document.getElementById('app')!;
 const pv = document.createElement('div'); pv.className = 'preview'; document.body.append(pv);
 const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 let curDeck = getDeck(), curSig = deckCards(curDeck).join();   // mazo con el que se juega ahora (contra la IA)
 let adv: { nation: string; rival: Rival; free?: boolean } | null = null;   // duelo de la Aventura en curso (null = partida normal contra la IA)
-const newS = () => { curDeck = getDeck(); curSig = deckCards(curDeck).join(); return newGame([deckCards(curDeck), adv ? adv.rival.deck : DECKS[otherDeck(curDeck)]], Date.now()); };
+const newS = () => { curDeck = getDeck(); curSig = deckCards(curDeck).join(); return applyEdge(newGame([deckCards(curDeck), adv ? adv.rival.deck : DECKS[otherDeck(curDeck)]], Date.now()), 1, adv ? edgeOf(adv.rival) : undefined); };
 let s: State = newS();
 let duel: { atk: number; blk: number | null; strike: boolean; def: number; cap: string; fly?: boolean } | null = null, dueling = false;
 let sel = new Set<number>(), mulSel = new Set<number>(), chatOpen = false, busy = false, ended = false, gameId = 0;
-let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, pend: { side: number; idx: number[] } | null = null;
+let tgt: { hand: number; kind: 'enemy' | 'ally' } | null = null, selAtk: number | null = null, heldBlk: number | null = null, pend: { side: number; idx: number[] } | null = null;
 let prev = [20, 20], seen = new Set<number>(), prevPlayed = [0, 0], lastRound = 0, prevHp = new Map<number, [number, number]>(), lastBoard: number[][] = [[], []], prevS: State = s;
 let ghostCache = new Map<number, { id: string; u: Unit }>();   // unidades del render anterior (para pintar la carta que muere)
-let reading = false, drawUntil = 0, prevActive: number = -1, prevSpell = 0;
+let enraged = false, reading = false, readT = 0, aiTimer = 0, drawUntil = 0, prevActive: number = -1, prevSpell = 0;
 // ---------- Online ----------
 let online: Online | null = null, ME: Seat = 0;
 const seatCards = (): [string[], string[]] => (online ? online.decks : [deckCards(curDeck), DECKS[otherDeck(curDeck)]]);   // mazo de cada asiento real
 const fac = (i: number) => (deckFaction(seatCards()[(i + ME) % 2]) === 'Umbra' ? 1 : 0);   // 0 = Luminarae, 1 = Umbra (según las cartas del mazo)
 const facName = (i: number) => (i === 0 ? deckLabel(curDeck) : adv ? adv.rival.name : fac(i) ? 'Umbra' : 'Luminarae');
-const react = (k: 'cast' | 'win' | 'lose') => { if (!online) chat.react(k); };  // las reacciones del chat son de la IA
+const react = (k: 'cast' | 'win' | 'lose' | 'start') => { if (!online) chat.react(k); };  // las reacciones del chat son de la IA
 
 function vfx(cls: string, text = '') { const d = document.createElement('div'); d.className = 'vfx ' + cls; d.textContent = text; document.body.append(d); setTimeout(() => d.remove(), 1400); }
 function toast(t: string) { document.querySelectorAll('.toast').forEach(e => e.remove()); const d = document.createElement('div'); d.className = 'vfx toast'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 1800); }
 
 // ---------- Chat / registro ----------
-const chat = new LocalChannel(); chat.nameFn = () => otherDeck(curDeck);
+const chat = new LocalChannel();
+// El que responde en el chat es el rival real del duelo (Aventura o partida rápida), no siempre Umbra.
+chat.personaFn = () => adv
+  ? { name: adv.rival.name, side: faction(adv.rival) === 'Umbra' ? 'umb' : 'lum', nation: adv.nation, boss: adv.rival.boss }
+  : { name: otherDeck(curDeck), side: otherDeck(curDeck) === 'Umbra' ? 'umb' : 'lum' };
 const chatEl = document.createElement('aside'); chatEl.className = 'chat';
 chatEl.innerHTML = `<div class="tabs"><button data-t="chat" class="on">Chat</button><button data-t="log">Registro</button></div>
   <div class="msgs" id="msgs"></div><div class="logv" id="logv" hidden></div>
@@ -104,7 +109,7 @@ function spot(id: string, side: number, u?: Unit) {
 function reader(id: string, side: number, u?: Unit) {
   document.querySelectorAll('.reader').forEach(e => e.remove());
   const c = CARDS[id], ms = c.type === 'spell' ? 6500 : 3800, d = document.createElement('div');
-  d.className = 'reader ' + (side ? 'foe' : 'me'); reading = true;
+  d.className = 'reader ' + (side ? 'foe' : 'me'); reading = true; readT = Date.now();
   d.innerHTML = `<div class="rd-h">${side ? '⚠ El rival juega' : 'Juegas'}</div>${card(id, '', '', u)}<div class="rd-t"><b>${esc(nameOf(id))}</b> · coste ${c.cost}<p>${esc(c.text)}</p></div>${rules(id, u ? u.kw : c.kw)}<button class="rd-ok" type="button">Entendido ✓</button><i class="rd-bar" style="animation-duration:${ms}ms"></i>`;
   document.body.append(d);
   const close = () => { if (!d.isConnected) return; d.remove(); reading = false; };
@@ -113,8 +118,8 @@ function reader(id: string, side: number, u?: Unit) {
 function portrait(p: Player, i: number, label: string): string {
   const fl = p.nexus < prev[i] ? 'hit' : p.nexus > prev[i] ? 'heal' : '', d = p.nexus - prev[i];
   const gems = Array.from({ length: p.maxMana }, (_, k) => `<u class="${k < p.mana ? 'on' : ''}"></u>`).join('');
-  const mine = i === 0 && !!myAvatar;
-  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${mine && !isImg(myAvatar) ? esc(myAvatar) : fac(i) ? '☾' : '☀'}</span>${mine ? (isImg(myAvatar) ? `<img src="${esc(myAvatar)}" alt="" onerror="this.remove()">` : '') : adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
+  const av = i === 0 ? myAvatar : online && i === 1 ? foeAvatar : '';   // foto de perfil: la tuya o, online, la del rival
+  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${av && !isImg(av) ? esc(av) : fac(i) ? '☾' : '☀'}</span>${av ? (isImg(av) ? `<img src="${esc(av)}" alt="" onerror="this.remove()">` : '') : adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
     <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>
     <div class="pname">${label}</div><div class="pmana">${gems}<span class="sm">${[0, 1, 2].map(k => `<i class="${k < p.spell ? 'on' : ''}"></i>`).join('')}</span></div></div>`;
 }
@@ -136,7 +141,7 @@ function runAttack(units: number[], side: number, challenge?: Record<string, num
   setTimeout(() => {
     if (gid !== gameId) return;
     pend = null; busy = false; const n = step(s, { type: 'attack', units, challenge });
-    if (n === s) { toast('No puedes atacar ahora'); sel.clear(); render(); return; }
+    if (n === s) { toast('No puedes atacar ahora'); sel.clear(); render(); loop(); return; }
     s = n; sel.clear(); render(); loop();
   }, 900);
 }
@@ -231,7 +236,7 @@ function playCombat(b: State, a: State, done: () => void) {
   run(0);
 }
 function commit(n: State) {
-  sel.clear(); tgt = null; selAtk = null;
+  sel.clear(); tgt = null; selAtk = null; heldBlk = null;
   if (resolvesCombat(s, n)) { busy = true; playCombat(s, n, () => { busy = false; s = n; render(); loop(); }); return; }
   s = n; render(); loop();
 }
@@ -239,6 +244,10 @@ function commit(n: State) {
 // ---------- Render ----------
 function render() {
   if (s.round !== lastRound && s.round > 0 && s.phase !== 'mulligan') { drawUntil = Date.now() + 1400; setTimeout(() => render(), 1450); }
+  { const bs = !!adv?.rival.boss, enr = bs && s.winner === null && s.phase !== 'mulligan' && s.p[1].nexus <= (s.cap?.[1] ?? 20) * 0.4;
+    document.body.classList.toggle('boss', bs); document.body.classList.toggle('enraged', enr); setBoss(bs);
+    if (bs) document.body.dataset.bn = adv!.nation; else delete document.body.dataset.bn;
+    if (enr && !enraged) { enraged = true; vfx('banner', '☠ EL JEFE SE ENFURECE'); sfx('boss'); } else if (!enr && s.p[1].nexus > (s.cap?.[1] ?? 20) * 0.4) enraged = false; }
   pv.style.display = 'none'; setTension(s.phase === 'block' || s.stack.length ? 1 : 0);
   const me = s.p[0], foe = s.p[1], myTurn = s.active === 0 && s.winner === null && !busy && s.phase !== 'mulligan';
   const defMe = s.phase === 'block' && s.token === 1 && s.active === 0;
@@ -255,7 +264,7 @@ function render() {
     const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
     const a = chal && !mine && chalTargets().includes(u) ? 'chal' : valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length && !s.peace && canAttack(u);
-    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${chal && !mine && Object.values(chal.picks).includes(u.uid) ? 'forced ' : ''}${chal && !mine && chalTargets().includes(u) ? 'tgtok ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
+    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${mine && heldBlk === i && s.phase === 'block' ? 'sel ' : ''}${chal && !mine && Object.values(chal.picks).includes(u.uid) ? 'forced ' : ''}${chal && !mine && chalTargets().includes(u) ? 'tgtok ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
     return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}" data-c="${u.card}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {
@@ -273,7 +282,7 @@ function render() {
     : chal ? `⚔ Retador: elige qué enemigo debe bloquear a ${nameOf(me.board.find(u => u.uid === chal!.queue[0])?.card ?? '')} (${Object.keys(chal.picks).length + 1}/${Object.keys(chal.picks).length + chal.queue.length}) · Esc cancela`
     : tgt ? `Elige objetivo para ${nameOf(me.hand[tgt.hand])} · Esc cancela`
     : s.phase === 'stack' ? (myTurn ? `Responde o pulsa OK · ${s.stack.length} en la pila` : `Pila · ${s.stack.length}`)
-    : s.phase === 'block' ? (defMe ? 'Toca un atacante y luego tu bloqueador' : s.active === 0 ? 'Rival bloqueó: puedes responder o resolver' : 'El rival asigna bloqueos…')
+    : s.phase === 'block' ? (defMe ? (heldBlk !== null ? 'Toca el atacante al que mover ese bloqueador (el mismo para quitarlo)' : 'Toca un atacante y luego tu bloqueador · toca un bloqueador ya puesto para moverlo') : s.active === 0 ? 'Rival bloqueó: puedes responder o resolver' : 'El rival asigna bloqueos…')
     : myTurn ? (s.passes === 1 ? 'El rival pasó: pasa también para cerrar la ronda' : s.tok[0] ? 'Tu turno: juega cartas o selecciona unidades y ataca' : 'Tu turno: juega cartas o pasa') : 'El rival tiene la prioridad…';
   const log = s.log.slice(-14).map(l => l.replace(/\{(\w+)\}/g, (_, id) => `<b>${nameOf(id)}</b>`)).join('<br>');
   const bs = s.attackers.length ? `<div class="blocksummary"><b>⚔ Combate</b>${s.attackers.map(uid => {
@@ -319,7 +328,7 @@ function render() {
   const fresh = s.p.some(p => p.board.some(u => !seen.has(u.uid))), gone = lastBoard.some(l => l.some(uid => !s.p.some(p => p.board.some(u => u.uid === uid))));
   if (fresh) s.p.flatMap(p => p.board.filter(u => !seen.has(u.uid)).map(u => u.card)).forEach((id, k) => setTimeout(() => sfxCard(id), k * 170)); if (gone) sfx('death');
   s.p.forEach((p, i) => p.board.filter(u => !seen.has(u.uid)).forEach(u => {
-    if (isFlagship(u.card)) { document.querySelectorAll('.spot,.reader').forEach(e => e.remove()); reading = true; sfx('round'); epicEntrance(u.card, card(u.card, '', '', u), () => { reading = false; }); }
+    if (isFlagship(u.card)) { document.querySelectorAll('.spot,.reader').forEach(e => e.remove()); reading = true; readT = Date.now(); sfx('round'); epicEntrance(u.card, card(u.card, '', '', u), () => { reading = false; }); }
     else if (i) reader(u.card, 1, u); else spot(u.card, 0, u);
   }));
   if (me.nexus < prev[0]) vfx('vhit'); else if (me.nexus > prev[0]) vfx('vheal');
@@ -344,7 +353,7 @@ function dispatch(a: Action) {
     const n = step(s, toView(a));                                 // validación local sobre la vista propia
     if (n === s) { toast(a.type === 'block' ? 'Ese bloqueo no es válido (Elusivo/Temible/ya asignado)' : a.type === 'play' ? 'No puedes jugar eso ahora' : 'Acción no válida'); return; }
     if (a.type === 'pass' || a.type === 'confirmBlocks') sfx('pass');
-    busy = true; sel.clear(); tgt = null; selAtk = null; render();
+    busy = true; sel.clear(); tgt = null; selAtk = null; heldBlk = null; render();
     online.send(a).then(ok => { if (!ok) { busy = false; render(); } });
     return;                                                       // el estado cambia cuando vuelve la jugada confirmada
   }
@@ -357,14 +366,17 @@ function loop() {
   if (online) return;
   if (s.winner !== null || s.active !== 1 || s.phase === 'mulligan') return;
   const gid = gameId;
+  // Un único temporizador: si algo (animación, carta que se lee) retrasa a la IA, vuelve a intentarlo en vez de perder el turno.
   const tick = () => {
-    if (gid !== gameId || busy || s.winner !== null || s.active !== 1) return;
-    if (reading) { setTimeout(tick, 300); return; }   // la IA espera a que leas su carta
+    if (gid !== gameId || online || s.winner !== null || s.active !== 1 || s.phase === 'mulligan') return;
+    if (reading && Date.now() - readT > 9000) reading = false;   // seguro: una carta "leyéndose" nunca bloquea a la IA para siempre
+    if (busy || dueling || reading) { aiTimer = window.setTimeout(tick, 300); return; }
     const a = aiAction(s, adv?.rival.level);
     if (a.type === 'attack') { runAttack(a.units, 1); return; }
-    commit(step(s, a));
+    const n = step(s, a);
+    commit(n === s ? step(s, { type: 'pass' }) : n);   // jugada ilegal de la IA: pasa en vez de quedarse atascada
   };
-  setTimeout(tick, 1200);
+  clearTimeout(aiTimer); aiTimer = window.setTimeout(tick, 1200);
 }
 function go() {
   const myTurn = s.active === 0 && s.winner === null && !busy; if (!myTurn) return; sfx('click');
@@ -388,7 +400,7 @@ app.addEventListener('click', e => {
   else if (a === 'online') { sfx('click'); openOnlineMenu(menuApi()); }
   else if (a === 'advmap') { sfx('click'); showAdventure(adv?.nation); }
   else if (a === 'advnext') { const r = adv && nextRival(adv.nation); if (adv && r) { sfx('start'); startDuel(adv.nation, r); } }
-  else if (a === 'new') { sfx('click'); gameId++; busy = false; pend = null; selAtk = null; tgt = null; s = newS(); sel.clear(); mulSel.clear(); prev = [20, 20]; seen.clear(); prevPlayed = [0, 0]; lastRound = 0; prevHp.clear(); lastBoard = [[], []]; ended = false; prevS = s; render(); }
+  else if (a === 'new') { sfx('click'); gameId++; busy = false; pend = null; selAtk = null; heldBlk = null; tgt = null; s = newS(); sel.clear(); mulSel.clear(); prev = [20, 20]; seen.clear(); prevPlayed = [0, 0]; lastRound = 0; prevHp.clear(); lastBoard = [[], []]; ended = false; prevS = s; render(); }
   else if (a === 'mul') { sfx('select'); mulSel.has(i) ? mulSel.delete(i) : mulSel.add(i); render(); }
   else if (a === 'mulgo') { sfx('click'); const idx = [...mulSel]; mulSel.clear(); dispatch({ type: 'mulligan', idx }); }
   else if (!myTurn) return;
@@ -405,8 +417,15 @@ app.addEventListener('click', e => {
   }
   else if (a === 'go') go();
   else if (a === 'attack') go();
-  else if (a === 'enemy-unit' && s.phase === 'block') { selAtk = i; sfx('select'); render(); }
-  else if (a === 'unit' && s.phase === 'block' && s.token === 1) { if (selAtk === null) toast('Primero toca al atacante rival'); else dispatch({ type: 'block', attacker: selAtk, blocker: i }); }
+  else if (a === 'enemy-unit' && s.phase === 'block') { if (heldBlk !== null) dispatch({ type: 'block', attacker: i, blocker: heldBlk }); else { selAtk = i; sfx('select'); render(); } }
+  else if (a === 'unit' && s.phase === 'block' && s.token === 1) {
+    const mineU = s.p[0].board[i];
+    if (selAtk !== null) dispatch({ type: 'block', attacker: selAtk, blocker: i });   // asignar o MOVER un bloqueador ya puesto
+    else if (mineU && Object.values(s.blocks).includes(mineU.uid)) {                    // coger un bloqueador ya asignado para moverlo
+      if (s.forced.some(f => s.blocks[String(f)] === mineU.uid)) toast('Ese bloqueo lo impone un Retador: no se puede mover');
+      else { heldBlk = heldBlk === i ? null : i; sfx('select'); render(); }
+    } else toast('Primero toca al atacante rival');
+  }
   else if (a === 'unit' && s.phase === 'main' && s.tok[0] && !s.attackers.length && (s.peace || !canAttack(s.p[0].board[i]))) { toast(s.peace ? '☮ Hay tregua: esta ronda nadie puede atacar' : s.p[0].board[i]?.kw.includes('raiz') ? '🌳 Las Raíces no pueden atacar' : '🍬 Está Pegada: no puede atacar esta ronda'); }
   else if (a === 'unit' && s.phase === 'main' && s.tok[0] && !s.attackers.length) { sel.has(i) ? sel.delete(i) : sel.add(i); sfx('select'); render(); }
 });
@@ -439,7 +458,7 @@ app.addEventListener('mouseleave', () => { pv.style.display = 'none'; });
 type Fresh = { before: State; action: Action; seat: Seat };
 const queue: Fresh[] = []; let pumping = false;
 function freshUi(st: State) {
-  gameId++; busy = false; pend = null; selAtk = null; tgt = null; s = st; sel.clear(); mulSel.clear(); ended = st.winner !== null;
+  gameId++; busy = false; pend = null; selAtk = null; heldBlk = null; tgt = null; s = st; sel.clear(); mulSel.clear(); ended = st.winner !== null;
   prev = [st.p[0].nexus, st.p[1].nexus]; prevPlayed = st.p.map(p => p.played.length); lastRound = st.round; prevS = st;
   seen = new Set(st.p.flatMap(p => p.board.map(u => u.uid))); prevHp = new Map(); lastBoard = [[], []];
   st.p.forEach((p, i) => p.board.forEach(u => { prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); }));
@@ -470,22 +489,25 @@ function menuApi() {
   };
 }
 function startOnline() {
-  adv = null;   // las salas online no son duelos de la Aventura
+  adv = null; foeAvatar = '';   // las salas online no son duelos de la Aventura
   if (online) return;
   online = new Online({
     onStatus: m => { setRoomTag(m); menuStatus(m); },
     onChat: m => { chat.push({ from: m.mine ? 'Tú' : 'Rival', text: m.text, side: m.mine ? 'me' : 'foe' }); if (!m.mine && !chatOpen) toast('💬 Rival: ' + m.text.slice(0, 60)); },
-    onReady: () => { ME = online!.seat; closeMenu(); hideMenu(); chat.sys('Chat online activo: puedes escribir a tu rival.'); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
+    onReady: () => { ME = online!.seat; foeAvatar = ''; if (myAvatar) online!.publishAvatar(myAvatar); closeMenu(); hideMenu(); chat.sys('Chat online activo: puedes escribir a tu rival.'); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
     onMoves: (g, fresh, replay) => { if (replay) { queue.length = 0; freshUi(view(g, ME)); } else { queue.push(...fresh); if (!pumping) pump(); } },
+    onFoeAvatar: raw => { resolveAva(raw).then(v => { v = safeFoeAva(v); if (v && v !== foeAvatar) { foeAvatar = v; if (!pumping && !busy) render(); } }).catch(() => {}); },
     onSettled: () => { if (!pumping && !queue.length && busy) { busy = false; render(); } },
   });
 }
 // Una sola cuenta: sin sesión del Portal se manda al Portal (en dev local no, para poder probar).
 // Foto de perfil del Portal: va en tu óvalo (emoji o imagen). Si no hay sesión o falla, queda el avatar de siempre.
-let myAvatar = '';
+let myAvatar = '', foeAvatar = '';
 const isImg = (v: string) => /^(https?:|data:image\/|\/)/.test(v);
 // El Portal guarda en el perfil el id de la imagen (p. ej. "esc"); su archivo sale de avatares.json del Portal. También acepta emoji, URL o data:.
 const PORTAL = 'https://apexora.github.io/Portal/';
+/** La foto del rival viene de otro usuario: solo se acepta una imagen del Portal, una imagen incrustada o un emoji corto (nunca una URL cualquiera). */
+const safeFoeAva = (v: string) => (v.startsWith(PORTAL) || /^data:image\/(png|jpe?g|webp|gif);base64,[\w+/=]+$/.test(v) || (!/^[\w-]*$/.test(v) && !/[:/]/.test(v) && [...v].length <= 4) ? v : '');
 const resolveAva = async (v: string) => {
   v = (v || '').trim();
   if (/^(https?:|data:image\/)/.test(v)) return v;
@@ -495,7 +517,7 @@ const resolveAva = async (v: string) => {
   } catch { /* sin lista: se prueba como emoji */ }
   return !/^[\w-]*$/.test(v) && [...v].length <= 4 ? v : '';   // solo un emoji corto se pinta como texto; un id sin imagen no
 };
-if (!import.meta.env.DEV) ensureUser().then(() => obtenerAvatar()).then(resolveAva).then(r => { if (r) { myAvatar = r; if (!pumping && !busy) render(); } }).catch(() => {});
+if (!import.meta.env.DEV) ensureUser().then(() => obtenerAvatar()).then(resolveAva).then(r => { if (r) { myAvatar = r; online?.publishAvatar(r); if (!pumping && !busy) render(); } }).catch(() => {});
 // Una sola vez por dispositivo: el progreso de Aventura que ya tenías antes de que existiera el feed se publica como un resumen por nación.
 const advResumen = async () => {
   if (import.meta.env.DEV || localStorage.getItem('tcgAdvFeed')) return;
@@ -522,6 +544,15 @@ function startDuel(nation: string, rival: Rival, free = false) {
   if (online) { online.close(); online = null; ME = 0; queue.length = 0; pumping = false; setRoomTag(''); closeMenu(); }
   adv = { nation, rival, free }; hideMenu(); startMusic(); freshUi(newS()); loop();
   chat.sys(free ? `Duelo contra ${rival.name}.` : `Aventura · ${NATIONS[nation].name}: duelo contra ${rival.name}.`);
+  react('start'); if (rival.boss) bossIntro(rival);
+}
+/** Presentación a pantalla completa del jefe final (la IA espera a que termine; clic para saltar). */
+function bossIntro(r: Rival) {
+  document.querySelectorAll('.bossintro').forEach(e => e.remove());
+  const d = document.createElement('div'); d.className = 'bossintro'; reading = true; readT = Date.now() + 1000;
+  d.innerHTML = `<small>JEFE FINAL</small><i></i><h2>${esc(r.name)}</h2><i></i><p>${esc(r.tag)}</p>`; document.body.append(d); sfx('boss');
+  const end = () => { if (!d.isConnected) return; d.classList.add('out'); setTimeout(() => d.remove(), 700); reading = false; };
+  d.addEventListener('click', end); setTimeout(end, 4200);
 }
 function showAdventure(focus?: string) { openAdventure({ onFight: startDuel, onClose: () => { if (!document.getElementById('title')) showMenu(); } }, focus); }
 document.addEventListener('menu:adv', () => showAdventure());
