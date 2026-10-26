@@ -4,7 +4,7 @@ Archivos en `public/img/`, con extensión `.webp` (ej. `neg_acolito.webp`). Las 
 neg_acolito//, neg_penitente//, neg_heraldo//, neg_monje//, neg_sacerdote//, neg_caballero//, neg_vasallo//, neg_profeta//, neg_angel//, neg_juez//, neg_devoto//, neg_arconte//, neg_patriarca//, neg_serafin//, neg_cruzado//, neg_dios//, neg_pacto//, neg_exorcismo//, neg_sacrificio//, neg_bendicion//, neg_condena//, neg_misa//, neg_plaga//, neg_decreto//
 
 **Boro (bor_)**
-bor_raterillo, bor_informante, bor_pandilla, bor_guardaespaldas, bor_contrabandista, bor_sicario, bor_recaudador, bor_dron, bor_capo, bor_mercenario, bor_cirujano, bor_don, bor_enforcer, bor_jefe, bor_senor, bor_botin, bor_soborno, bor_extorsion, bor_traicion, bor_cobro, bor_contrato, bor_apagon, bor_refuerzos, bor_ajuste, bor_maton (ficha)
+bor_raterillo//, bor_informante//, bor_pandilla//, bor_guardaespaldas//, bor_contrabandista//, bor_sicario//, bor_recaudador//, bor_dron//, bor_capo//, bor_mercenario//, bor_cirujano//, bor_don//, bor_enforcer//, bor_jefe//, bor_senor//, bor_botin//, bor_soborno//, bor_extorsion//, bor_traicion//, bor_cobro//, bor_contrato//, bor_apagon//, bor_refuerzos//, bor_ajuste//, bor_maton// (ficha)
 
 **Skaldrum (ska_)**
 ska_vigia, ska_recluta, ska_escudero, ska_lancero, ska_capitan, ska_jinete, ska_pesado, ska_campeon, ska_estratega, ska_acropolis, ska_comandante, ska_oraculo, ska_titan, ska_strategos, ska_rey, ska_lanza, ska_escudo, ska_testudo, ska_carga, ska_asedio, ska_reclutamiento, ska_veredicto, ska_orden, ska_hoplita (ficha)
