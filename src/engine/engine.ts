@@ -23,7 +23,7 @@ const kill = (u: Unit) => { u.dmg = u.hp + u.th + 999; };
 const power = (u: Unit) => atkOf(u) * 1e6 + curHp(u) * 1e3 + CARDS[u.card].cost;
 const strongest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) > power(b) ? u : b), undefined);
 const weakest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) < power(b) ? u : b), undefined);
-const ENEMY_T = ['dmgEnemy', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
+const ENEMY_T = ['dmgEnemy', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
 /** Objetivo manual que exige un hechizo (null = sin objetivo). */
 export function targetKind(id: string): 'enemy' | 'ally' | null {
   const c = CARDS[id]; if (!c || c.type !== 'spell') return null;
@@ -80,12 +80,17 @@ function mulligan(s: State, i: number, idx: number[]) {
   for (const k of set) p.deck.push(p.hand.splice(k, 1)[0]);
   shuffle(s, p.deck); draw(s, i, set.length);
 }
+const MALWARE = 'bor_malware';
+/** Mueve una unidad de un bando a otro (Boro: hackeo, soborno, trueque). */
+function defect(s: State, from: number, to: number, u: Unit) {
+  s.p[from].board = s.p[from].board.filter(x => x !== u); s.p[to].board.push(u); arrive(s, to, u);
+}
 function startRound(s: State) {
   s.round++;
   if (s.round > 40) { s.winner = -1; return; }
   s.token = o(s.token); s.active = s.token; s.phase = 'main'; s.passes = 0; s.attackers = []; s.blocks = {}; s.forced = []; s.stack = [];
-  s.tok = [false, false]; s.tok[s.token] = true; s.peace = false;
-  for (const i of [s.token, o(s.token)]) { const p = s.p[i]; p.maxMana = Math.min(10, p.maxMana + 1); p.mana = p.maxMana; draw(s, i, 1 + (s.extraDraw?.[i] ?? 0)); if (s.winner !== null) return; }
+  s.tok = [false, false]; s.tok[s.token] = true; s.peace = false; s.apagon = [false, false];
+  for (const i of [s.token, o(s.token)]) { const p = s.p[i]; p.maxMana = Math.min(10, p.maxMana + 1); p.mana = Math.max(0, p.maxMana - (s.debt?.[i] ?? 0)); if (s.debt) s.debt[i] = 0; draw(s, i, 1 + (s.extraDraw?.[i] ?? 0)); if (s.winner !== null) return; }
   s.log = s.log.slice(-40); s.log.push(`— Ronda ${s.round} (ficha: J${s.token + 1}) —`); checkWin(s);
 }
 function endRound(s: State) {
@@ -95,6 +100,20 @@ function endRound(s: State) {
     for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('adaptado')) { /* inmune */ } else { u.dmg += 1; hit++; } });
     s.gas = (s.gas ?? 0) - 1; s.log.push(`☣ El gas tóxico envenena a ${hit} unidad(es)${s.gas ? ` · quedan ${s.gas} ronda(s)` : ' · se disipa'}`);
   }
+  // Virus (Boro): la unidad infectada recibe 1 de daño y el virus salta a otra unidad de su bando (si no hay otra, se queda)
+  for (const p of s.p) {
+    const hosts = p.board.filter(u => u.kw.includes('virus'));
+    for (const h of hosts) {
+      h.dmg += 1;
+      const next = p.board.filter(x => x !== h && !x.kw.includes('virus'));
+      if (next.length) { const t = next[Math.floor(rand(s) * next.length)]; h.kw = h.kw.filter(k => k !== 'virus'); t.kw.push('virus'); }
+    }
+    if (hosts.length) s.log.push(`🦠 El virus daña a ${hosts.length} unidad(es) y salta`);
+  }
+  // Usura (Boro): los intereses cobran al Nexo y van bajando (3, 2, 1...)
+  if (s.usura) for (const i of [0, 1]) if (s.usura[i] > 0) { s.p[i].nexus -= s.usura[i]; s.log.push(`💸 Intereses: J${i + 1} paga ${s.usura[i]} de Nexo`); s.usura[i]--; }
+  // Malware (Boro): cada Malware sin purgar en la mano sangra 1 de Nexo
+  for (const i of [0, 1]) { const n = s.p[i].hand.filter(c => c === MALWARE).length; if (n) { s.p[i].nexus -= n; s.log.push(`🦠 Malware: J${i + 1} pierde ${n} de Nexo`); } }
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('regenera') && !u.kw.includes('marchito')) u.dmg = 0; });
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('efimero')) kill(u); });
   cleanup(s);
@@ -191,6 +210,34 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'discard': { const f = s.p[o(i)]; for (let k = 0; k < e.n && f.hand.length; k++) { const [c] = f.hand.splice(Math.floor(rand(s) * f.hand.length), 1); s.log.push(`☠ J${o(i) + 1} descarta {${c}}`); } break; }
     case 'mill': { const f = s.p[o(i)]; const n = Math.min(e.n, f.deck.length); if (n) { f.deck.splice(f.deck.length - n, n); s.log.push(`☠ Se eliminan ${n} carta(s) del mazo de J${o(i) + 1}`); } break; }
     case 'plant': { const f = s.p[o(i)]; for (let k = 0; k < e.n; k++) f.deck.splice(Math.floor(rand(s) * (f.deck.length + 1)), 0, e.card); s.log.push(`☠ Se cuela ${e.n > 1 ? e.n + ' veces ' : ''}{${e.card}} en el mazo de J${o(i) + 1}`); break; }
+    case 'malware': for (let k = 0; k < e.n && foe.hand.length < 10; k++) foe.hand.push(MALWARE); s.log.push('🦠 Malware en la mano del rival'); break;
+    case 'virus': { const t = tgt ?? strongest(foe.board.filter(u => !u.kw.includes('virus'))); if (t && !t.kw.includes('virus')) t.kw.push('virus'); break; }
+    case 'arco': { // Cortocircuito en cadena: salta entre unidades enemigas distintas, con 1 menos de daño en cada salto
+      const hit = new Set<Unit>(); let t: Unit | undefined = tgt ?? strongest(foe.board);
+      for (let d = e.n; d > 0 && t; d--) {
+        hit.add(t); dealDamage(s, t, d);
+        const rest = foe.board.filter(u => !hit.has(u) && curHp(u) > 0); t = rest.length ? rest[Math.floor(rand(s) * rest.length)] : undefined;
+      }
+      s.log.push(`⚡ Cortocircuito: salta por ${hit.size} unidad(es)`); break;
+    }
+    case 'hack': { // Hackeo: controlas a la enemiga más fuerte hasta el final de la ronda (Efímera: se quema al golpear o al cerrar)
+      const t = strongest(foe.board);
+      if (t && me.board.length < 6) { if (!t.kw.includes('efimero')) t.kw.push('efimero'); defect(s, o(i), i, t); s.log.push('💻 Hackeo: una unidad enemiga cambia de bando'); }
+      break;
+    }
+    case 'soborno': { const t = weakest(foe.board); if (t && me.board.length < 6) { defect(s, o(i), i, t); s.log.push('💰 Soborno: una unidad enemiga se pasa a tu bando'); } break; }
+    case 'trueque': { // Traición: tu unidad más débil y la más débil del rival intercambian de bando
+      const a = weakest(me.board), b = weakest(foe.board);
+      if (a && b) { defect(s, i, o(i), a); defect(s, o(i), i, b); s.log.push('🗡 Traición: dos unidades cambian de bando'); }
+      break;
+    }
+    case 'prestamo': me.mana = Math.min(10, me.mana + e.n); s.debt = s.debt ?? [0, 0]; s.debt[i] += e.d; s.log.push(`💵 Préstamo: +${e.n} de maná ahora, −${e.d} al empezar la próxima ronda`); break;
+    case 'usura': s.usura = s.usura ?? [0, 0]; s.usura[o(i)] = Math.min(3, s.usura[o(i)] + e.n); s.log.push('💸 El Nexo rival entra en usura'); break;
+    case 'cobro': { const n = Math.min(e.n, me.board.length); if (n > 0) foe.nexus -= n; break; }   // cada unidad tuya cobra 1 de Nexo al rival
+    case 'tributo': { const n = Math.min(e.n, me.board.filter(u => u.card === 'bor_maton').length); me.mana = Math.min(10, me.mana + n); break; }   // cada Matón paga 1 de maná
+    case 'overclock': me.board.forEach(u => { u.ta += e.a; const d = Math.min(e.n, curHp(u) - 1); if (d > 0) dealDamage(s, u, d); }); break;   // sobrecarga: +poder y daño sin matar
+    case 'apagon': s.apagon = s.apagon ?? [false, false]; s.apagon[o(i)] = true; foe.spell = 0; s.log.push('🌑 Apagón: el rival no puede lanzar hechizos esta ronda'); break;
+    case 'copia': if (foe.hand.length && me.hand.length < 10) me.hand.push(foe.hand[Math.floor(rand(s) * foe.hand.length)]); break;   // robo de datos
     case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
     case 'silence': { const t = tgt ?? strongest(foe.board); if (t) t.kw = []; break; }
     case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;
@@ -201,6 +248,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
 export function canPlay(s: State, i: number, idx: number): boolean {
   const p = s.p[i], c = CARDS[p.hand[idx]];
   if (!c || s.winner !== null || s.active !== i || s.phase === 'mulligan') return false;
+  if (c.type === 'spell' && s.apagon?.[i]) return false;   // Apagón (Boro): sin hechizos esta ronda
   if (c.type === 'unit') return s.phase === 'main' && !s.stack.length && !s.attackers.length && p.board.length < 6 && c.cost <= p.mana;
   if (c.cost > p.mana + p.spell) return false;
   const sp = c.speed ?? 'fast';
@@ -208,6 +256,7 @@ export function canPlay(s: State, i: number, idx: number): boolean {
   const k = targetKind(c.id);
   if ((k === 'enemy' && !s.p[o(i)].board.length) || (k === 'ally' && !p.board.length)) return false;
   if (c.fx.some(e => e.t === 'sacDmg') && !p.board.length) return false;
+  if (c.fx.some(e => e.t === 'trueque') && (!p.board.length || !s.p[o(i)].board.length)) return false;
   return true;
 }
 /** Tras un hechizo en fase de bloqueo: anula los bloqueos que ya no son legales (p. ej. el atacante ganó Elusivo). */

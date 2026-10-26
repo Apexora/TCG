@@ -11,13 +11,14 @@ function spellPlan(s: State, i: number): Action | null {
     const tk = targetKind(id); let sc = 0, target: number | undefined;
     if (tk === 'enemy') {
       const list = [...foe.board].sort((a, b) => rank(b) - rank(a)), d = dmgOf(id);
-      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither') ? list[0] : undefined);
+      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither' || e.t === 'virus') ? list[0] : undefined);
       if (!t || (c.fx.some(e => e.t === 'sacDmg') && me.board.length < 2)) return;
       target = t.uid; sc = rank(t) / 2 + c.cost;
     } else if (tk === 'ally') {
       const heals = c.fx.some(e => e.t === 'healUnit'), pool = heals ? me.board.filter(u => u.dmg > 0) : me.board;
       const t = [...pool].sort((a, b) => (heals ? b.dmg - a.dmg : rank(b) - rank(a)))[0]; if (!t) return; target = t.uid; sc = heals ? 2 + t.dmg : 3;
     } else {
+      if (id === 'bor_malware') sc += 2;   // purgar el virus de la mano
       for (const e of c.fx) {
         if (e.t === 'healNexus' && me.nexus <= 20 - e.n) sc += 2;
         else if (e.t === 'buffAll' && me.board.length >= 2) sc += 3;
@@ -28,6 +29,13 @@ function spellPlan(s: State, i: number): Action | null {
         else if (e.t === 'frostAll' && foe.board.length >= 2) sc += 2;
         else if (e.t === 'gainMana' && me.hand.some(h => CARDS[h].type === 'unit' && CARDS[h].cost > me.mana)) sc += 2;
         else if (e.t === 'draw') sc += me.hand.length < 6 ? 2 : 0;
+        else if (e.t === 'malware' && foe.hand.length < 10) sc += 3;
+        else if (e.t === 'apagon' && foe.hand.some(h => CARDS[h].type === 'spell')) sc += 2;
+        else if (e.t === 'arco' && foe.board.length >= 1) sc += 3;
+        else if (e.t === 'usura' || e.t === 'cobro') sc += 2;
+        else if (e.t === 'soborno' && foe.board.length && me.board.length < 6) sc += 3;
+        else if (e.t === 'trueque' && me.board.length && foe.board.length) sc += 1;
+        else if (e.t === 'prestamo' && me.hand.some(h => CARDS[h].type === 'unit' && CARDS[h].cost > me.mana && CARDS[h].cost <= me.mana + e.n)) sc += 2;
         else if (e.t === 'poda' && foe.board.length) sc += 3;
         else if (e.t === 'peaje' && foe.mana >= e.n) sc += 2;
         else if (e.t === 'clone' && me.board.length >= 1 && me.board.length < 6) sc += 3;

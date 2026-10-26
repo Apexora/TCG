@@ -2,7 +2,9 @@ export type Keyword = 'barrera' | 'robovida' | 'arrollar' | 'letal' | 'rapido' |
   // Naciones de la Aventura: mutante (Psybernia), don (Sinfalía), leal (Ostraca), estilo y pegada (Pongí), cerrojo (Krahn), raiz (Sylvaris), adaptado (Disnjav)
   | 'mutante' | 'don' | 'leal' | 'estilo' | 'pegada' | 'cerrojo' | 'raiz' | 'adaptado'
   // Negatt: Marchito (no puede curarse ni regenerar; lo deja el daño necrótico)
-  | 'marchito';
+  | 'marchito'
+  // Boro: virus informático (salta de unidad en unidad y la daña)
+  | 'virus';
 /** Velocidades de hechizo (burst/focus se resuelven al instante sin pasar prioridad; fast/slow van a la pila. */
 export type SpellSpeed = 'burst' | 'focus' | 'fast' | 'slow';
 export type Effect =
@@ -19,7 +21,11 @@ export type Effect =
   | { t: 'wither' }                               // Marchitar: el poder de una enemiga queda en 0 para siempre
   | { t: 'discard'; n: number }                   // el rival descarta n cartas al azar
   | { t: 'mill'; n: number }                      // elimina las n cartas superiores del mazo rival
-  | { t: 'plant'; card: string; n: number };      // cuela n copias de una carta en el mazo rival (en posiciones al azar)
+  | { t: 'plant'; card: string; n: number }       // cuela n copias de una carta en el mazo rival (en posiciones al azar)
+  // Boro (cyberpunk fallido, mafioso): malware, virus, cortocircuito, hackeo, deuda y usura
+  | { t: 'malware'; n: number } | { t: 'virus' } | { t: 'arco'; n: number } | { t: 'hack' } | { t: 'soborno' } | { t: 'trueque' }
+  | { t: 'prestamo'; n: number; d: number } | { t: 'usura'; n: number } | { t: 'cobro'; n: number } | { t: 'tributo'; n: number }
+  | { t: 'overclock'; a: number; n: number } | { t: 'apagon' } | { t: 'copia' };
 export interface CardDef { id: string; name: string; cost: number; type: 'unit' | 'spell'; atk: number; hp: number; kw: Keyword[]; text: string; fx: Effect[]; grow?: { a: number; h: number }; speed?: SpellSpeed; token?: boolean }
 /** ta/th: bonos temporales de la ronda (se revierten al final). */
 export interface Unit { uid: number; card: string; atk: number; hp: number; dmg: number; kw: Keyword[]; ta: number; th: number }
@@ -37,6 +43,8 @@ export interface State {
   cap?: [number, number]; extraDraw?: [number, number];
   /** Gas tóxico (Disnjav): rondas que le quedan; al cerrar cada ronda daña a las unidades sin Adaptado. */
   gas?: number;
+  /** Boro: deuda de maná por jugador (se descuenta al empezar su próxima ronda), usura (intereses sobre el Nexo) y apagón (sin hechizos esta ronda). */
+  debt?: [number, number]; usura?: [number, number]; apagon?: [boolean, boolean];
 }
 export type Action =
   | { type: 'play'; hand: number; target?: number } | { type: 'pass' } | { type: 'attack'; units: number[]; challenge?: Record<string, number> }

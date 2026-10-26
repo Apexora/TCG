@@ -1,0 +1,18 @@
+--- src/ai/ai.ts	2026-10-26 21:59:42.986300616 +0000
++++ src/ai/ai.ts	2026-10-26 21:59:42.988394943 +0000
+@@ -11,13 +11,14 @@
+     const tk = targetKind(id); let sc = 0, target: number | undefined;
+     if (tk === 'enemy') {
+       const list = [...foe.board].sort((a, b) => rank(b) - rank(a)), d = dmgOf(id);
+-      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle') ? list[0] : undefined);
++      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'virus') ? list[0] : undefined);
+       if (!t || (c.fx.some(e => e.t === 'sacDmg') && me.board.length < 2)) return;
+       target = t.uid; sc = rank(t) / 2 + c.cost;
+     } else if (tk === 'ally') {
+       const heals = c.fx.some(e => e.t === 'healUnit'), pool = heals ? me.board.filter(u => u.dmg > 0) : me.board;
+       const t = [...pool].sort((a, b) => (heals ? b.dmg - a.dmg : rank(b) - rank(a)))[0]; if (!t) return; target = t.uid; sc = heals ? 2 + t.dmg : 3;
+     } else {
++      if (id === 'bor_malware') sc += 2;   // purgar el virus de la mano
+       for (const e of c.fx) {
+         if (e.t === 'healNexus' && me.nexus <= 20 - e.n) sc += 2;
+         else if (e.t === 'buffAll' && me.board.length >= 2) sc += 3;
