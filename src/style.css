@@ -280,3 +280,9 @@ main{max-width:1740px;padding:clamp(12px,2vw,28px) clamp(12px,2.5vw,42px) 32px}
 @media(max-width:1100px){header{gap:12px}.hud{min-width:205px}.arena{border-radius:18px}.arena::before{width:min(76vw,650px)}}
 @media(max-width:700px){header{gap:10px;min-height:0;background:#0b0913f5}.brand-mark{width:34px;height:34px}.brand h1{font-size:17px}.header-state{justify-content:flex-start;overflow:auto;padding-bottom:2px}.toolbar .ghost{min-height:36px;border-radius:6px}.arena{padding:9px;border-radius:13px;background-position:center;background-size:cover}.arena::before{width:95vw;opacity:.5}.arena>.row.board{padding:8px 2px;min-height:calc(76px*1.45 + 18px)}.arena .hud{border-radius:9px;box-shadow:0 8px 22px #0009,inset 0 1px 0 #ffffff0a}.hud .info>b{font-size:10px}.hud .orb{font-size:27px}.arena .mid{border-radius:9px;padding:10px}.action-group .btn{min-height:42px;padding:10px 8px;letter-spacing:.03em}.hand{padding:14px 8px 18px;border-radius:9px}.hand .card{--w:clamp(122px,37vw,150px)}.hand .card:hover{transform:translateY(-10px) scale(1.025)}.hand-heading b{font-size:13px}.ed{background:#ffffff07}.over h2{font-size:clamp(38px,12vw,62px)}}
 @media(prefers-reduced-motion:reduce){.arena::before,.arena::after,body::before{animation:none!important}.card:hover,.ed:hover,.ghost:hover,.btn:hover{transform:none}}
+
+/* Texto de carta sin cortes: el panel crece hacia arriba según el texto y las descripciones largas reducen un poco la letra */
+.card:not(.mini) .panel{height:auto;min-height:42%;max-height:78%}
+.card.lum:not(.mini) .panel,.card.umb:not(.mini) .panel{min-height:50%}
+.card:not(.mini) .tx{overflow:visible}
+.tx.tl1{font-size:.76em;line-height:1.16}.tx.tl2{font-size:.68em;line-height:1.14}.tx.tl3{font-size:.6em;line-height:1.12}

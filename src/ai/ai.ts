@@ -11,7 +11,7 @@ function spellPlan(s: State, i: number): Action | null {
     const tk = targetKind(id); let sc = 0, target: number | undefined;
     if (tk === 'enemy') {
       const list = [...foe.board].sort((a, b) => rank(b) - rank(a)), d = dmgOf(id);
-      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle') ? list[0] : undefined);
+      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither') ? list[0] : undefined);
       if (!t || (c.fx.some(e => e.t === 'sacDmg') && me.board.length < 2)) return;
       target = t.uid; sc = rank(t) / 2 + c.cost;
     } else if (tk === 'ally') {

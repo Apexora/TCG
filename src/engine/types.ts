@@ -1,16 +1,25 @@
 export type Keyword = 'barrera' | 'robovida' | 'arrollar' | 'letal' | 'rapido' | 'duro' | 'elusivo' | 'temible' | 'retador' | 'regenera' | 'efimero' | 'veneno'
   // Naciones de la Aventura: mutante (Psybernia), don (Sinfalía), leal (Ostraca), estilo y pegada (Pongí), cerrojo (Krahn), raiz (Sylvaris), adaptado (Disnjav)
-  | 'mutante' | 'don' | 'leal' | 'estilo' | 'pegada' | 'cerrojo' | 'raiz' | 'adaptado';
+  | 'mutante' | 'don' | 'leal' | 'estilo' | 'pegada' | 'cerrojo' | 'raiz' | 'adaptado'
+  // Negatt: Marchito (no puede curarse ni regenerar; lo deja el daño necrótico)
+  | 'marchito';
 /** Velocidades de hechizo (burst/focus se resuelven al instante sin pasar prioridad; fast/slow van a la pila. */
 export type SpellSpeed = 'burst' | 'focus' | 'fast' | 'slow';
 export type Effect =
   | { t: 'healNexus'; n: number } | { t: 'hurtNexus'; n: number } | { t: 'draw'; n: number } | { t: 'dmgNexus'; n: number }
   | { t: 'buffOther'; a: number; h: number } | { t: 'buffAll'; a: number; h: number } | { t: 'buffAlly'; a: number; h: number } | { t: 'tempBuff'; a: number; h: number }
-  | { t: 'giveKw'; kw: Keyword } | { t: 'dmgEnemy'; n: number } | { t: 'drain'; n: number; heal?: number } | { t: 'dmgAll'; n: number } | { t: 'frost' }
-  | { t: 'healUnit'; n: number } | { t: 'tempBuffAll'; a: number; h: number } | { t: 'sacDraw'; n: number } | { t: 'sacDmg' } | { t: 'debuffEnemies'; a: number; h: number } | { t: 'destroyEnemy' }
+  | { t: 'giveKw'; kw: Keyword } | { t: 'dmgEnemy'; n: number; necro?: boolean } | { t: 'drain'; n: number; heal?: number; necro?: boolean } | { t: 'dmgAll'; n: number; necro?: boolean } | { t: 'frost' }
+  | { t: 'healUnit'; n: number } | { t: 'tempBuffAll'; a: number; h: number } | { t: 'sacDraw'; n: number } | { t: 'sacDmg'; necro?: boolean } | { t: 'debuffEnemies'; a: number; h: number } | { t: 'destroyEnemy' }
   | { t: 'summon'; card: string; n: number } | { t: 'frostAll' } | { t: 'silence' } | { t: 'gainMana'; n: number }
   // Naciones de la Aventura
-  | { t: 'fuse' } | { t: 'clone' } | { t: 'tregua' } | { t: 'chicle' } | { t: 'peaje'; n: number } | { t: 'poda' } | { t: 'gas'; n: number };
+  | { t: 'fuse' } | { t: 'clone' } | { t: 'tregua' } | { t: 'chicle' } | { t: 'peaje'; n: number } | { t: 'poda' } | { t: 'gas'; n: number }
+  // Negatt: muerte y degeneración
+  | { t: 'necroWeak'; n: number }                 // daño necrótico a la unidad enemiga más débil
+  | { t: 'necroStrong'; n: number }               // daño necrótico a la unidad enemiga más fuerte
+  | { t: 'wither' }                               // Marchitar: el poder de una enemiga queda en 0 para siempre
+  | { t: 'discard'; n: number }                   // el rival descarta n cartas al azar
+  | { t: 'mill'; n: number }                      // elimina las n cartas superiores del mazo rival
+  | { t: 'plant'; card: string; n: number };      // cuela n copias de una carta en el mazo rival (en posiciones al azar)
 export interface CardDef { id: string; name: string; cost: number; type: 'unit' | 'spell'; atk: number; hp: number; kw: Keyword[]; text: string; fx: Effect[]; grow?: { a: number; h: number }; speed?: SpellSpeed; token?: boolean }
 /** ta/th: bonos temporales de la ronda (se revierten al final). */
 export interface Unit { uid: number; card: string; atk: number; hp: number; dmg: number; kw: Keyword[]; ta: number; th: number }

@@ -95,7 +95,7 @@ function endRound(s: State) {
     for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('adaptado')) { /* inmune */ } else { u.dmg += 1; hit++; } });
     s.gas = (s.gas ?? 0) - 1; s.log.push(`☣ El gas tóxico envenena a ${hit} unidad(es)${s.gas ? ` · quedan ${s.gas} ronda(s)` : ' · se disipa'}`);
   }
-  for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('regenera')) u.dmg = 0; });
+  for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('regenera') && !u.kw.includes('marchito')) u.dmg = 0; });
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('efimero')) kill(u); });
   cleanup(s);
   for (const p of s.p) p.board.forEach(u => { u.ta = 0; u.th = 0; if (u.dmg >= u.hp) u.dmg = u.hp - 1; u.kw = u.kw.filter(k => k !== 'pegada'); });
@@ -125,6 +125,14 @@ function cleanup(s: State) {
     }
   }
 }
+/** Daño necrótico (Negatt): ignora Barrera y Duro, y si la víctima sobrevive queda Marchita (no puede curarse ni regenerar). */
+function necroDamage(s: State, t: Unit, n: number): number {
+  if (n <= 0) return 0;
+  const dealt = Math.min(n, Math.max(0, curHp(t)));
+  t.dmg += n;
+  if (curHp(t) > 0 && !t.kw.includes('marchito')) t.kw.push('marchito');
+  return dealt;
+}
 function dealDamage(s: State, t: Unit, n: number, src?: { u: Unit; owner: number }): number {
   if (n <= 0) return 0;
   const b = t.kw.indexOf('barrera');
@@ -150,16 +158,16 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'buffOther': { const t = strongest(me.board.filter(u => u !== src)); if (t) { t.atk += e.a; t.hp += e.h; } break; }
     case 'buffAlly': { const t = tgt ?? strongest(me.board); if (t) { t.atk += e.a; t.hp += e.h; } break; }
     case 'tempBuff': { const t = tgt ?? strongest(me.board); if (t) { t.ta += e.a; t.th += e.h; } break; }
-    case 'healUnit': { const t = tgt ?? me.board.find(u => u.dmg > 0); if (t) t.dmg = Math.max(0, t.dmg - e.n); break; }
+    case 'healUnit': { const t = tgt ?? me.board.find(u => u.dmg > 0 && !u.kw.includes('marchito')); if (t && !t.kw.includes('marchito')) t.dmg = Math.max(0, t.dmg - e.n); break; }
     case 'tempBuffAll': me.board.forEach(u => { u.ta += e.a; u.th += e.h; }); break;
     case 'buffAll': me.board.forEach(u => { u.atk += e.a; u.hp += e.h; }); break;
     case 'giveKw': { const t = tgt ?? strongest(me.board); if (t && !t.kw.includes(e.kw as Keyword)) t.kw.push(e.kw); break; }
-    case 'dmgEnemy': { const t = tgt ?? strongest(foe.board); if (t) dealDamage(s, t, e.n); break; }
-    case 'drain': { const t = tgt ?? strongest(foe.board); if (t) { dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
-    case 'dmgAll': foe.board.forEach(u => dealDamage(s, u, e.n)); break;
+    case 'dmgEnemy': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); } break; }
+    case 'drain': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
+    case 'dmgAll': foe.board.forEach(u => { if (e.necro) necroDamage(s, u, e.n); else dealDamage(s, u, e.n); }); break;
     case 'frost': { const t = tgt ?? strongest(foe.board); if (t) t.ta -= atkOf(t); break; }
     case 'sacDraw': { const v = weakest(me.board.filter(u => u !== src)); if (v) { kill(v); cleanup(s); draw(s, i, e.n); } break; }
-    case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(foe.board); if (v && t) { const a = atkOf(v); kill(v); dealDamage(s, t, a); } break; }
+    case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(foe.board); if (v && t) { const a = atkOf(v); kill(v); if (e.necro) necroDamage(s, t, a); else dealDamage(s, t, a); } break; }
     case 'debuffEnemies': foe.board.forEach(u => { u.atk = Math.max(0, u.atk - e.a); u.hp -= e.h; }); break;
     case 'summon': spawn(s, i, e.card, e.n); break;
     case 'fuse': { // Fusión (Psybernia): sacrifica a tu aliada más débil y la unidad absorbe sus estadísticas
@@ -177,6 +185,12 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'peaje': foe.mana = Math.max(0, foe.mana - e.n); break;
     case 'poda': { const t = weakest(foe.board); if (t) kill(t); break; }
     case 'gas': s.gas = Math.max(s.gas ?? 0, e.n); s.log.push(`☣ Gas tóxico: ${s.gas} ronda(s)`); break;
+    case 'necroWeak': { const t = weakest(foe.board); if (t) necroDamage(s, t, e.n); break; }
+    case 'necroStrong': { const t = strongest(foe.board); if (t) necroDamage(s, t, e.n); break; }
+    case 'wither': { const t = tgt ?? strongest(foe.board); if (t) { t.atk = 0; t.ta = Math.min(0, t.ta); s.log.push(`☠ {${t.card}} se marchita: su poder queda en 0`); } break; }
+    case 'discard': { const f = s.p[o(i)]; for (let k = 0; k < e.n && f.hand.length; k++) { const [c] = f.hand.splice(Math.floor(rand(s) * f.hand.length), 1); s.log.push(`☠ J${o(i) + 1} descarta {${c}}`); } break; }
+    case 'mill': { const f = s.p[o(i)]; const n = Math.min(e.n, f.deck.length); if (n) { f.deck.splice(f.deck.length - n, n); s.log.push(`☠ Se eliminan ${n} carta(s) del mazo de J${o(i) + 1}`); } break; }
+    case 'plant': { const f = s.p[o(i)]; for (let k = 0; k < e.n; k++) f.deck.splice(Math.floor(rand(s) * (f.deck.length + 1)), 0, e.card); s.log.push(`☠ Se cuela ${e.n > 1 ? e.n + ' veces ' : ''}{${e.card}} en el mazo de J${o(i) + 1}`); break; }
     case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
     case 'silence': { const t = tgt ?? strongest(foe.board); if (t) t.kw = []; break; }
     case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;

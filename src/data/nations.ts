@@ -69,32 +69,37 @@ export const ARBORIS: CardDef[] = [
   T('arb_brote', 'Brote Vivo', 1, 1, ['regenera'], 'Ficha.'),
 ];
 
-/** NEGATT: magia divina corrompida. Se paga con vida del Nexo: más poder, robo y robo de vida; silenciar y sacrificios. */
+/** NEGATT: muerte, degeneración y oscuridad. Daño necrótico (ignora Barrera y Duro y deja Marchita a la víctima), Marchitar (poder a 0 para siempre),
+ *  descartes y mazo rival devorado, y Pestes coladas en el mazo enemigo. Los más poderosos se pagan con vida del Nexo. */
+const pest = (n: number): Effect => ({ t: 'plant', card: 'neg_peste', n });
 export const NEGATT: CardDef[] = [
-  U('neg_acolito', 'Acólito Caído', 1, 2, 1, [], 'Al jugarla: tu Nexo recibe 1.', [{ t: 'hurtNexus', n: 1 }]),
+  U('neg_acolito', 'Acólito Caído', 1, 2, 1, [], 'Al jugarla: cuela 1 Peste Latente en el mazo enemigo. Tu Nexo recibe 1.', [pest(1), { t: 'hurtNexus', n: 1 }]),
   U('neg_penitente', 'Penitente Marcado', 1, 1, 2, ['robovida']),
   U('neg_heraldo', 'Heraldo Marchito', 2, 1, 1, ['letal']),
   U('neg_monje', 'Monje del Silencio', 2, 1, 3, ['duro']),
-  U('neg_sacerdote', 'Sacerdote Corrupto', 2, 2, 2, [], 'Al jugarla: roba 1 y tu Nexo recibe 2.', [{ t: 'draw', n: 1 }, { t: 'hurtNexus', n: 2 }]),
+  U('neg_sacerdote', 'Sacerdote Corrupto', 2, 2, 2, [], 'Al jugarla: el rival descarta 1 carta al azar. Tu Nexo recibe 2.', [{ t: 'discard', n: 1 }, { t: 'hurtNexus', n: 2 }]),
   U('neg_caballero', 'Caballero Sacrílego', 3, 3, 3, ['robovida']),
-  U('neg_vasallo', 'Vasallo de las Diez Casas', 3, 2, 2, [], 'Al jugarla: +1/+1 a otra aliada.', [{ t: 'buffOther', a: 1, h: 1 }]),
-  U('neg_profeta', 'Profeta Roto', 3, 2, 2, [], 'Al jugarla: la enemiga más fuerte pierde sus palabras clave.', [{ t: 'silence' }]),
-  U('neg_angel', 'Ángel Corrupto', 4, 4, 3, ['elusivo'], 'Al jugarla: tu Nexo recibe 2.', [{ t: 'hurtNexus', n: 2 }]),
+  U('neg_vasallo', 'Vasallo de las Diez Casas', 3, 2, 2, [], 'Al jugarla: la enemiga más débil recibe 2 de daño necrótico. Tu Nexo recibe 2.', [{ t: 'necroWeak', n: 2 }, { t: 'hurtNexus', n: 2 }]),
+  U('neg_profeta', 'Profeta Roto', 3, 2, 2, [], 'Al jugarla: la enemiga más fuerte se marchita: su poder queda en 0 para siempre. Tu Nexo recibe 2.', [{ t: 'wither' }, { t: 'hurtNexus', n: 2 }]),
+  U('neg_angel', 'Ángel Corrupto', 4, 4, 3, ['elusivo'], 'Al jugarla: elimina las 2 cartas superiores del mazo enemigo y cuela 1 Peste Latente en él. Tu Nexo recibe 3.', [{ t: 'mill', n: 2 }, pest(1), { t: 'hurtNexus', n: 3 }]),
   U('neg_juez', 'Juez de la Casa Negra', 4, 3, 4, ['retador']),
   U('neg_devoto', 'Devoto de Sangre', 4, 3, 3, [], 'Gana +1/+1 cuando muere una unidad aliada.', [], { a: 1, h: 1 }),
   U('neg_arconte', 'Arconte Caído', 5, 4, 4, ['barrera', 'robovida']),
-  U('neg_patriarca', 'Patriarca Maldito', 5, 6, 4, [], 'Al jugarla: tu Nexo recibe 3.', [{ t: 'hurtNexus', n: 3 }]),
-  U('neg_serafin', 'Serafín Corrompido', 6, 5, 5, ['elusivo', 'robovida'], 'Al jugarla: tu Nexo recibe 2.', [{ t: 'hurtNexus', n: 2 }]),
+  U('neg_patriarca', 'Patriarca Maldito', 5, 6, 4, [], 'Al jugarla: la enemiga más fuerte recibe 3 de daño necrótico. Tu Nexo recibe 4.', [{ t: 'necroStrong', n: 3 }, { t: 'hurtNexus', n: 4 }]),
+  U('neg_serafin', 'Serafín Corrompido', 6, 5, 5, ['elusivo', 'robovida'], 'Al jugarla: el rival descarta 1 carta al azar y se cuela 1 Peste Latente en su mazo. Tu Nexo recibe 3.', [{ t: 'discard', n: 1 }, pest(1), { t: 'hurtNexus', n: 3 }]),
   U('neg_cruzado', 'Cruzado Quebrado', 6, 5, 6, ['duro', 'arrollar']),
-  U('neg_dios', 'Dios Marchito', 7, 6, 6, ['barrera', 'letal'], 'Al jugarla: tu Nexo recibe 3.', [{ t: 'hurtNexus', n: 3 }]),
+  U('neg_dios', 'Dios Marchito', 7, 6, 6, ['barrera', 'letal'], 'Al jugarla: destruye a la enemiga más fuerte. Tu Nexo recibe 4.', [{ t: 'destroyEnemy' }, { t: 'hurtNexus', n: 4 }]),
   S('neg_pacto', 'Pacto Prohibido', 1, 'burst', 'Roba 2 cartas. Tu Nexo recibe 3.', [{ t: 'draw', n: 2 }, { t: 'hurtNexus', n: 3 }]),
-  S('neg_exorcismo', 'Exorcismo Inverso', 2, 'fast', 'Una unidad enemiga pierde todas sus palabras clave.', [{ t: 'silence' }]),
-  S('neg_sacrificio', 'Sacrificio Impío', 2, 'slow', 'Sacrifica tu unidad más débil; daña a una enemiga igual a su ataque.', [{ t: 'sacDmg' }]),
+  S('neg_exorcismo', 'Exorcismo Inverso', 2, 'fast', 'Una unidad enemiga recibe 2 de daño necrótico (ignora Barrera y Duro; si sobrevive, queda Marchita).', [{ t: 'dmgEnemy', n: 2, necro: true }]),
+  S('neg_sacrificio', 'Sacrificio Impío', 2, 'slow', 'Sacrifica tu unidad más débil; una enemiga recibe daño necrótico igual a su ataque.', [{ t: 'sacDmg', necro: true }]),
   S('neg_bendicion', 'Bendición Corrompida', 2, 'slow', 'Una aliada gana +3/+1. Tu Nexo recibe 2.', [{ t: 'buffAlly', a: 3, h: 1 }, { t: 'hurtNexus', n: 2 }]),
-  S('neg_condena', 'Condena', 3, 'fast', 'Inflige 3 a una unidad enemiga.', [{ t: 'dmgEnemy', n: 3 }]),
-  S('neg_misa', 'Misa Negra', 3, 'fast', 'Inflige 3 a una enemiga y cura 3 a tu Nexo.', [{ t: 'drain', n: 3 }]),
-  S('neg_plaga', 'Plaga Divina', 4, 'slow', 'Las unidades enemigas pierden 1/1 y reciben 1.', [{ t: 'debuffEnemies', a: 1, h: 1 }, { t: 'dmgAll', n: 1 }]),
-  S('neg_decreto', 'Decreto de las Diez Casas', 6, 'slow', 'Destruye una unidad enemiga y cura 4 a tu Nexo.', [{ t: 'destroyEnemy' }, { t: 'healNexus', n: 4 }]),
+  S('neg_condena', 'Condena', 3, 'fast', 'Marchita a una unidad enemiga: su poder queda en 0 para siempre.', [{ t: 'wither' }]),
+  S('neg_misa', 'Misa Negra', 3, 'fast', 'Inflige 3 de daño necrótico a una enemiga y cura 3 a tu Nexo.', [{ t: 'drain', n: 3, necro: true }]),
+  S('neg_plaga', 'Plaga Divina', 4, 'slow', 'Las unidades enemigas pierden 1/1 y reciben 1 de daño necrótico.', [{ t: 'debuffEnemies', a: 1, h: 1 }, { t: 'dmgAll', n: 1, necro: true }]),
+  S('neg_decreto', 'Decreto de las Diez Casas', 6, 'slow', 'Destruye una unidad enemiga; las demás pierden 2 de poder. Cura 2 a tu Nexo.', [{ t: 'destroyEnemy' }, { t: 'debuffEnemies', a: 2, h: 0 }, { t: 'healNexus', n: 2 }]),
+  /** Ficha-maldición: la cuela Negatt en el mazo rival. Es una carta muerta que estorba en la mano; jugarla duele. */
+  { id: 'neg_peste', name: 'Peste Latente', cost: 1, type: 'spell', atk: 0, hp: 0, kw: [], speed: 'burst', token: true,
+    text: 'Ficha de Negatt colada en tu mazo. Al jugarla: tu Nexo recibe 2.', fx: [{ t: 'hurtNexus', n: 2 }] },
 ];
 
 /** BORO: cyberpunk fallido, mafias. Matones (fichas), dinero (maná extra), extorsión al Nexo rival, soborno y traiciones. */

@@ -1,63 +1,37 @@
-umb_sombra.webp
-umb_aprendiz.webp
-umb_acechador.webp
-umb_cultista.webp
-umb_espectro.webp
-umb_esqueleto.webp
-umb_reptante.webp
-umb_lobo.webp
-umb_sanguijuela.webp
-umb_ritualista.webp
-umb_golem.webp
-umb_verdugo.webp
-umb_jinete.webp
-umb_basalto.webp
-umb_devoradora.webp
-umb_azote.webp
-umb_behemot.webp
-umb_abisal.webp
-umb_senor.webp
-umb_titan.webp
+Archivos en `public/img/`, con extensión `.webp` (ej. `neg_acolito.webp`). Las fichas, que se invocan y no van en mazos, tienen la marca (ficha).
 
-umb_punalada.webp
-umb_piel.webp
-umb_embestida.webp
-umb_furia.webp
-umb_drenar.webp
-umb_plaga.webp
-umb_pacto.webp
-umb_maldicion.webp
-umb_aplastar.webp
-umb_eclipse.webp
+**Negatt (neg_)**
+neg_acolito//, neg_penitente//, neg_heraldo//, neg_monje//, neg_sacerdote//, neg_caballero//, neg_vasallo//, neg_profeta//, neg_angel//, neg_juez//, neg_devoto//, neg_arconte//, neg_patriarca//, neg_serafin//, neg_cruzado//, neg_dios//, neg_pacto//, neg_exorcismo//, neg_sacrificio//, neg_bendicion//, neg_condena//, neg_misa//, neg_plaga//, neg_decreto//
 
-lum_acolita.webp
-lum_vigia.webp
-lum_centinela.webp
-lum_portador.webp
-lum_halcon.webp
-lum_novicia.webp
-lum_sanadora.webp
-lum_vidente.webp
-lum_oraculo.webp
-lum_paladin.webp
-lum_heraldo.webp
-lum_coloso.webp
-lum_lider.webp
-lum_serafin.webp
-lum_arcangel.webp
+**Boro (bor_)**
+bor_raterillo, bor_informante, bor_pandilla, bor_guardaespaldas, bor_contrabandista, bor_sicario, bor_recaudador, bor_dron, bor_capo, bor_mercenario, bor_cirujano, bor_don, bor_enforcer, bor_jefe, bor_senor, bor_botin, bor_soborno, bor_extorsion, bor_traicion, bor_cobro, bor_contrato, bor_apagon, bor_refuerzos, bor_ajuste, bor_maton (ficha)
 
-lum_destello.webp
-lum_rocio.webp
-lum_fervor.webp
-lum_escudo.webp
-lum_velo.webp
-lum_absorcion.webp
-lum_plegaria.webp
-lum_resplandor.webp
-lum_juicio.webp
-lum_escarcha.webp
-lum_vision.webp
-lum_bendicion.webp
-lum_renacer.webp
-lum_estrellas.webp
-lum_amanecer.webp
+**Skaldrum (ska_)**
+ska_vigia, ska_recluta, ska_escudero, ska_lancero, ska_capitan, ska_jinete, ska_pesado, ska_campeon, ska_estratega, ska_acropolis, ska_comandante, ska_oraculo, ska_titan, ska_strategos, ska_rey, ska_lanza, ska_escudo, ska_testudo, ska_carga, ska_asedio, ska_reclutamiento, ska_veredicto, ska_orden, ska_hoplita (ficha)
+
+**Markivton (mkv_)**
+mkv_grumete_atr, mkv_gaviota, mkv_canonero, mkv_bohemio, mkv_loro, mkv_corsario, mkv_contramaestre, mkv_tiburon, mkv_navegante, mkv_capitan, mkv_fragata, mkv_cocinero, mkv_arponero, mkv_kraken, mkv_galeon, mkv_rey, mkv_reparto, mkv_cofre, mkv_viento, mkv_abandonar, mkv_salva, mkv_abordaje, mkv_niebla, mkv_fiesta, mkv_tormenta, mkv_grumete (ficha)
+
+**Tribus Skaldrak (tsk_)**
+tsk_cachorro, tsk_aprendiz, tsk_guardian, tsk_hermano, tsk_chaman, tsk_lobo, tsk_cantor, tsk_ventisca, tsk_jefe, tsk_yeti, tsk_guerrera, tsk_hechicera, tsk_mamut, tsk_dragon, tsk_anciano, tsk_sabio, tsk_hoguera, tsk_aliento, tsk_escarcha, tsk_lanza, tsk_juramento, tsk_manada, tsk_ventiscaz, tsk_prision, tsk_aurora, tsk_lobezno (ficha)
+
+**Psybernia (psy_)**
+psy_larva, psy_resto, psy_gusano, psy_carcelero, psy_cobaya, psy_quimera, psy_segador, psy_aborto, psy_reptante, psy_amalgama, psy_hibrido, psy_abominacion, psy_hidra, psy_coloso, psy_valeria, psy_bisturi, psy_suero, psy_inyeccion, psy_quirofano, psy_disecar, psy_amputar, psy_fusion, psy_cria, psy_arena, psy_purga, psy_engendro (ficha)
+
+**Sinfalía (sin_)**
+sin_cantor, sin_vecino, sin_panadero, sin_bailarin, sin_mensajero, sin_regalo, sin_poeta, sin_curandera, sin_anfitrion, sin_abuela, sin_juglar, sin_festejos, sin_guardian, sin_coro, sin_alcalde, sin_corazon, sin_abrazo, sin_favor, sin_gesto, sin_obsequio, sin_canto, sin_banquete, sin_tregua, sin_fiesta, sin_jubileo, sin_invitado (ficha)
+
+**Ostraca (ost_)**
+ost_obrero, ost_aprendiz, ost_granjero, ost_guardia, ost_cocinero, ost_doctor, ost_clon, ost_comerciante, ost_soldado, ost_juez, ost_cientifico, ost_maestro, ost_capataz, ost_centinela, ost_heraldo, ost_chip, ost_orden, ost_cuidado, ost_obediencia, ost_adoctrinar, ost_sacrificio, ost_censo, ost_replica, ost_veredicto, ost_produccion, ost_decreto, ost_clonbase (ficha)
+
+**Pongí (pon_)**
+pon_fan, pon_patinadora, pon_burbuja, pon_modelo, pon_bailarina, pon_influencer, pon_dj, pon_chiclera, pon_diva, pon_coreografa, pon_estrella, pon_capitana, pon_reina, pon_megashow, pon_aurora, pon_diosa, pon_pose, pon_brillantina, pon_chicle, pon_paso, pon_selfie, pon_rayo, pon_flash, pon_globos, pon_deslumbrar, pon_conga, pon_concierto, pon_globo (ficha)
+
+**Presidio de Krahn (krn_)**
+krn_recluta, krn_desertor, krn_centinela, krn_fusilero, krn_aduanero, krn_francotirador, krn_sargento, krn_perro, krn_barricada, krn_artillero, krn_veterano, krn_comisario, krn_tanque, krn_capitan, krn_coloso, krn_general, krn_fusilar, krn_peaje, krn_cierre, krn_toque, krn_blindaje, krn_alambrada, krn_bombardeo, krn_leva, krn_ejecucion, krn_ley, krn_soldado (ficha)
+
+**Sylvaris (syl_)**
+syl_semilla, syl_hojarasca, syl_zarcillo, syl_raicilla, syl_chacal, syl_savia, syl_musgo, syl_tronco, syl_arbolmadre, syl_bestia, syl_enredadera, syl_guardian, syl_corazon, syl_titan, syl_granraiz, syl_brote, syl_sabia, syl_enredo, syl_regenerar, syl_zarzas, syl_cosecha, syl_poda, syl_crecer, syl_ciclo, syl_decision, syl_retono (ficha)
+
+**Disnjav (dsj_)**
+dsj_rata, dsj_alga, dsj_nacido, dsj_esporas, dsj_recolector, dsj_cazador, dsj_sapo, dsj_quimico, dsj_gigante, dsj_hongo, dsj_behemot, dsj_hidra, dsj_leviatan, dsj_alfa, dsj_madre, dsj_aliento, dsj_antidoto, dsj_fuga, dsj_mascara, dsj_corrosion, dsj_nube, dsj_generacion, dsj_tormenta, dsj_asfixia, dsj_colapso, dsj_cria (ficha)

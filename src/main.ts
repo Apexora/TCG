@@ -97,7 +97,7 @@ function card(id: string, attr = '', cls = '', u?: Unit, extra = ''): string {
   const kn = (c.type === 'spell' ? [SPN[c.speed ?? 'fast']] : []).concat(kws.map(k => KWN[k])).join(' · ');
   return `<div class="card ${c.type} ${f} ${NAT.has(f) ? 'nat' : ''} ${cls}" ${attr}>${artHTML(id)}
     <div class="side"><i class="cost">${c.cost}</i>${kws.map(k => `<i class="ki">${KWI[k]}</i>`).join('')}</div>
-    <div class="panel"><div class="nm">${nameOf(id)}</div><div class="orn"></div><p class="tx"><em>${kn}</em>${c.text}</p></div>
+    <div class="panel"><div class="nm">${nameOf(id)}</div><div class="orn"></div><p class="tx ${c.text.length > 150 ? 'tl3' : c.text.length > 105 ? 'tl2' : c.text.length > 70 ? 'tl1' : ''}"><em>${kn}</em>${c.text}</p></div>
     ${c.type === 'unit' ? `<b class="atk ${u && u.ta ? 'tmp' : ''}">${u ? atkOf(u) : c.atk}<s>⚔</s></b><b class="hp ${dmg}">${u ? curHp(u) : c.hp}<s>♥</s></b>` : ''}${extra}</div>`;
 }
 function spot(id: string, side: number, u?: Unit) {

@@ -103,5 +103,32 @@ bf.p[fat].board = [U(1, 'lum_lider', 4, 5, ['retador']), U(2, 'umb_lobo', 2, 2)]
 bf = step(bf, { type: 'attack', units: [0, 1] }); const before = bf;
 bf = step(bf, { type: 'block', attacker: 1, blocker: 0 }); ok(bf === before && bf.blocks['1'] === 3, 'el bloqueo forzado por Retador no se mueve');
 }
+// --- Negatt: necrótico, marchitar, descartes, mazo y Pestes ---
+{
+  const play = (g: State, card: string, tgtUid?: number): State => { const me = g.active; g.p[me].hand = [card]; g.p[me].mana = 10; g.p[me].spell = 0; let r = step(g, { type: 'play', hand: 0, target: tgtUid }); if (r.phase === 'stack') r = step(r, { type: 'pass' }); return r; };
+  // Daño necrótico: ignora Barrera y Duro, deja Marchita a la superviviente y la Marchita no regenera ni se cura
+  let n = fresh(); const me = n.active, foe = 1 - me as 0 | 1;
+  n.p[foe].board = [U(1, 'lum_centinela', 2, 5, ['barrera', 'duro', 'regenera'])];
+  n = play(n, 'neg_exorcismo', 1); const v = n.p[foe].board[0];
+  ok(v && v.dmg === 2 && !v.kw.includes('barrera') === false && v.kw.includes('marchito'), 'Necrótico: ignora Barrera/Duro y deja Marchita');
+  let w = n; w.p[0].mana = 0; w.p[1].mana = 0; w = step(w, { type: 'pass' }); w = step(w, { type: 'pass' });
+  ok(w.p[foe].board[0].dmg === 2, 'Marchito: no regenera al cerrar la ronda');
+  // Condena: Marchitar deja el poder en 0 para siempre (también tras cerrar la ronda)
+  let c = fresh(); const cm = c.active, cf = 1 - cm as 0 | 1; c.p[cf].board = [U(1, 'umb_titan', 7, 7)];
+  c = play(c, 'neg_condena', 1); ok(c.p[cf].board[0].atk === 0 && atkOf(c.p[cf].board[0]) === 0, 'Marchitar: poder a 0');
+  c.p[0].mana = 0; c.p[1].mana = 0; c = step(c, { type: 'pass' }); c = step(c, { type: 'pass' });
+  ok(c.p[cf].board[0].atk === 0, 'Marchitar: dura más allá de la ronda');
+  // Sacerdote: el rival descarta 1 carta al azar
+  let d = fresh(); const dm = d.active, df2 = 1 - dm as 0 | 1; d.p[df2].hand = ['umb_sombra', 'umb_lobo', 'umb_golem'];
+  d = play(d, 'neg_sacerdote'); ok(d.p[df2].hand.length === 2, 'Descartar: el rival pierde 1 carta de la mano');
+  // Ángel: cuela una Peste y elimina 2 cartas del mazo rival
+  let a = fresh(); const am = a.active, af = 1 - am as 0 | 1; a.p[af].deck = ['umb_sombra', 'umb_lobo', 'umb_golem', 'umb_titan', 'umb_azote'];
+  a = play(a, 'neg_angel'); ok(a.p[af].deck.length === 4 && a.p[af].deck.filter(x => x === 'neg_peste').length === 1, 'Mill + Plantar: -2 cartas y +1 Peste en el mazo rival');
+  // Peste: jugarla daña al dueño
+  let pe = fresh(); const pm = pe.active; const nx = pe.p[pm].nexus; pe = play(pe, 'neg_peste'); ok(pe.p[pm].nexus === nx - 2, 'Peste Latente: tu Nexo recibe 2');
+  // Vasallo: necrótico a la enemiga más débil
+  let va = fresh(); const vm = va.active, vf = 1 - vm as 0 | 1; va.p[vf].board = [U(1, 'umb_titan', 7, 7), U(2, 'umb_sombra', 2, 2)];
+  va = play(va, 'neg_vasallo'); ok(va.p[vf].board.length === 1 && va.p[vf].board[0].card === 'umb_titan', 'Vasallo: mata a la enemiga más débil con necrótico');
+}
 console.log(fails ? `${fails} fallo(s)` : 'Reglas v3 verificadas: mulligan, rondas, maná de hechizo, bloqueo, rápido, arrollar, elusivo, barrera + mecánicas de naciones (Mutante, Don, Leal, Clonar, Fusión, Tregua, Chicle, Cerrojo, Peaje, Raíz, Poda, Gas, Estilo).');
 process.exit(fails ? 1 : 0);
