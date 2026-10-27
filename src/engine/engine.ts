@@ -18,12 +18,12 @@ function draw(s: State, i: number, n: number) {
 }
 const heal = (s: State, i: number, n: number) => { s.p[i].nexus = Math.min(s.cap?.[i] ?? 20, s.p[i].nexus + n); };
 export const atkOf = (u: Unit) => Math.max(0, u.atk + u.ta);
-export const curHp = (u: Unit) => u.hp + u.th - u.dmg;
+export const curHp = (u: Unit) => u.hp + u.th + (u.fb ?? 0) - u.dmg;
 const kill = (u: Unit) => { u.dmg = u.hp + u.th + 999; };
 const power = (u: Unit) => atkOf(u) * 1e6 + curHp(u) * 1e3 + CARDS[u.card].cost;
 const strongest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) > power(b) ? u : b), undefined);
 const weakest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) < power(b) ? u : b), undefined);
-const ENEMY_T = ['dmgEnemy', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
+const ENEMY_T = ['dmgEnemy', 'certero', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
 /** Objetivo manual que exige un hechizo (null = sin objetivo). */
 export function targetKind(id: string): 'enemy' | 'ally' | null {
   const c = CARDS[id]; if (!c || c.type !== 'spell') return null;
@@ -51,8 +51,15 @@ function spawn(s: State, i: number, id: string, n: number) {
     me.board.push(u); arrive(s, i, u);
   }
 }
+/** Markivton: Doblón (moneda de botín; vive en la mano) y Marea (rondas impares = Pleamar, pares = Bajamar). */
+const DOBLON = 'mkv_doblon';
+export const tideOf = (s: State): 'pleamar' | 'bajamar' => (s.round % 2 === 1 ? 'pleamar' : 'bajamar');
+function loot(s: State, i: number, n: number) { const h = s.p[i].hand; for (let k = 0; k < n && h.length < 10; k++) h.push(DOBLON); }
+/** Marea: Pleamar +2 de poder, Bajamar +2 de vida (solo hasta el final de la ronda). */
+function tideBuff(s: State, u: Unit) { if (!u.kw.includes('marea')) return; if (tideOf(s) === 'pleamar') u.ta += 2; else u.th += 2; }
 /** Lealtad (Ostraca): al entrar una unidad Leal, las demás Leales aliadas ganan +1 de poder. */
 function arrive(s: State, i: number, u: Unit) {
+  tideBuff(s, u);
   if (!u.kw.includes('leal')) return;
   const mates = s.p[i].board.filter(x => x !== u && x.kw.includes('leal'));
   if (!mates.length) return;
@@ -89,12 +96,25 @@ function startRound(s: State) {
   s.round++;
   if (s.round > 40) { s.winner = -1; return; }
   s.token = o(s.token); s.active = s.token; s.phase = 'main'; s.passes = 0; s.attackers = []; s.blocks = {}; s.forced = []; s.stack = [];
-  s.tok = [false, false]; s.tok[s.token] = true; s.peace = false; s.apagon = [false, false];
+  s.tok = [false, false]; s.tok[s.token] = true; s.peace = false; s.apagon = [false, false]; s.atkd = [];
   for (const i of [s.token, o(s.token)]) { const p = s.p[i]; p.maxMana = Math.min(10, p.maxMana + 1); p.mana = Math.max(0, p.maxMana - (s.debt?.[i] ?? 0)); if (s.debt) s.debt[i] = 0; draw(s, i, 1 + (s.extraDraw?.[i] ?? 0)); if (s.winner !== null) return; }
-  s.log = s.log.slice(-40); s.log.push(`— Ronda ${s.round} (ficha: J${s.token + 1}) —`); checkWin(s);
+  s.log = s.log.slice(-40); s.log.push(`— Ronda ${s.round} (ficha: J${s.token + 1}) —`);
+  // Marea (Markivton): solo se anuncia si alguna carta de mareas anda por la partida
+  const tidal = (id: string) => CARDS[id].kw.includes('marea') || CARDS[id].fx.some(e => e.t === 'tide');
+  if (s.p.some(p => [...p.deck, ...p.hand, ...p.board.map(u => u.card)].some(tidal))) s.log.push(tideOf(s) === 'pleamar' ? '🌊 Pleamar: las unidades con Marea ganan +2 de poder' : '🌊 Bajamar: las unidades con Marea ganan +2 de vida');
+  for (const p of s.p) p.board.forEach(u => tideBuff(s, u));
+  checkWin(s);
 }
 function endRound(s: State) {
   for (const p of s.p) { p.spell = Math.min(3, p.spell + p.mana); p.mana = 0; }
+  // Andanada (Markivton): cada barco que se quedó en puerto (no atacó) cañonea a la unidad enemiga más fuerte; sin unidades, al Nexo
+  for (const i of [0, 1] as const) {
+    const guns = s.p[i].board.filter(u => u.kw.includes('andanada') && !(s.atkd ?? []).includes(u.uid));
+    for (const g of guns) { const t = strongest(s.p[o(i)].board.filter(x => curHp(x) > 0)); if (t) dealDamage(s, t, 1, { u: g, owner: i }); else s.p[o(i)].nexus -= 1; }
+    if (guns.length) s.log.push(`💥 Andanada: J${i + 1} cañonea con ${guns.length} barco(s)`);
+  }
+  cleanup(s); checkWin(s);
+  if (s.winner !== null) return;
   if ((s.gas ?? 0) > 0) {   // Gas tóxico (Disnjav): daña 1 a toda unidad sin Adaptado; los Adaptados se alimentan de él (+1 de poder)
     let hit = 0;
     for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('adaptado')) { /* inmune */ } else { u.dmg += 1; hit++; } });
@@ -117,7 +137,7 @@ function endRound(s: State) {
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('regenera') && !u.kw.includes('marchito')) u.dmg = 0; });
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('efimero')) kill(u); });
   cleanup(s);
-  for (const p of s.p) p.board.forEach(u => { u.ta = 0; u.th = 0; if (u.dmg >= u.hp) u.dmg = u.hp - 1; u.kw = u.kw.filter(k => k !== 'pegada'); });
+  for (const p of s.p) p.board.forEach(u => { u.ta = 0; u.th = 0; const cap = u.hp + (u.fb ?? 0); if (u.dmg >= cap) u.dmg = cap - 1; u.kw = u.kw.filter(k => k !== 'pegada'); });
   s.peace = false;
   // Mutante (Psybernia): +2 de poder y -1 de vida permanentes al cerrar la ronda (su cuerpo se deteriora)
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('mutante')) { u.atk += 2; u.hp -= 1; } });
@@ -131,9 +151,21 @@ function checkWin(s: State) {
   const a = s.p[0].nexus <= 0, b = s.p[1].nexus <= 0;
   if (a && b) s.winner = -1; else if (a) s.winner = 1; else if (b) s.winner = 0;
 }
+/** Falange (Skaldrum): aura de formación (muro de escudos). Cada unidad con Falange gana +1 de vida por cada OTRA aliada con Falange (máx +2).
+ *  No es permanente: se recalcula tras cada cambio del campo y se pierde si las compañeras caen o pierden la palabra clave. */
+const FALANGE_MAX = 2;
+function syncAuras(s: State) {
+  for (const p of s.p) {
+    const n = p.board.filter(u => u.kw.includes('falange')).length;
+    for (const u of p.board) {
+      const f = u.kw.includes('falange') ? Math.min(FALANGE_MAX, n - 1) : 0;
+      if (f) u.fb = f; else delete u.fb;
+    }
+  }
+}
 function cleanup(s: State) {
   for (let changed = true; changed;) {
-    changed = false;
+    changed = false; syncAuras(s);
     for (const p of s.p) {
       const dead = p.board.filter(u => curHp(u) <= 0);
       if (!dead.length) continue;
@@ -238,6 +270,30 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'overclock': me.board.forEach(u => { u.ta += e.a; const d = Math.min(e.n, curHp(u) - 1); if (d > 0) dealDamage(s, u, d); }); break;   // sobrecarga: +poder y daño sin matar
     case 'apagon': s.apagon = s.apagon ?? [false, false]; s.apagon[o(i)] = true; foe.spell = 0; s.log.push('🌑 Apagón: el rival no puede lanzar hechizos esta ronda'); break;
     case 'copia': if (foe.hand.length && me.hand.length < 10) me.hand.push(foe.hand[Math.floor(rand(s) * foe.hand.length)]); break;   // robo de datos
+    case 'certero': { // Tiro certero (Skaldrum): si el disparo destruye a la unidad, robas 1
+      const t = tgt ?? strongest(foe.board);
+      if (t) { const alive = curHp(t) > 0; dealDamage(s, t, e.n); if (alive && curHp(t) <= 0) { draw(s, i, 1); s.log.push('🎯 Tiro certero: la unidad cae y robas 1'); } }
+      break;
+    }
+    case 'augurio': { // Augurio (Skaldrum): mira las n cartas superiores; robas la de mayor coste y el resto va al fondo (determinista)
+      const k = Math.min(e.n, me.deck.length); if (!k) break;
+      const top = me.deck.splice(me.deck.length - k, k);
+      let b = 0; top.forEach((c, idx) => { if (CARDS[c].cost >= CARDS[top[b]].cost) b = idx; });
+      const [pick] = top.splice(b, 1);
+      me.deck.unshift(...top);
+      if (me.hand.length < 10) me.hand.push(pick);
+      s.log.push(`🔮 Augurio: J${i + 1} examina ${k} carta(s) y se queda con una`); break;
+    }
+    case 'dom': // Dominio (Skaldrum): solo si controlas más unidades que el rival
+      if (me.board.length > foe.board.length) { s.log.push('🏛 Dominio: controlas el campo'); e.fx.forEach(f => applyFx(s, i, f, src, tgt)); }
+      break;
+    case 'doblon': loot(s, i, e.unit ? Math.min(e.n, me.board.length) : e.n); break;
+    case 'tide': { const pl = tideOf(s) === 'pleamar'; s.log.push(pl ? '🌊 Pleamar' : '🌊 Bajamar'); (pl ? e.pleamar : e.bajamar).forEach(f => applyFx(s, i, f, src, tgt)); break; }
+    case 'paga': { // paga con Doblones de tu mano; si no te alcanzan, no pasa nada
+      const idx = me.hand.map((c, k) => (c === DOBLON ? k : -1)).filter(k => k >= 0);
+      if (idx.length >= e.n) { for (const k of idx.slice(0, e.n).reverse()) me.hand.splice(k, 1); s.log.push(`🪙 J${i + 1} paga ${e.n} Doblón(es)`); e.fx.forEach(f => applyFx(s, i, f, src, tgt)); }
+      break;
+    }
     case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
     case 'silence': { const t = tgt ?? strongest(foe.board); if (t) t.kw = []; break; }
     case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;
@@ -293,6 +349,7 @@ function resolveCombat(s: State) {
     .map(u => ({ u, had: s.blocks[String(u.uid)] !== undefined, b: D.board.find(x => x.uid === s.blocks[String(u.uid)]) }));
   const struck = new Set<number>(), nex = (u: Unit, n: number) => {
     if (n <= 0) return; s.p[df].nexus -= n; if (u.kw.includes('robovida')) heal(s, at, n);
+    if (u.kw.includes('saqueo')) { loot(s, at, 1); s.log.push('🪙 Saqueo: un Doblón a la mano de J' + (at + 1)); }
   };
   const hit = (src: Unit, owner: number, t: Unit) => {
     const need = curHp(t) + (t.kw.includes('duro') ? 1 : 0), a = atkOf(src);
@@ -363,7 +420,7 @@ export function step(s0: State, a: Action): State {
     if (s.phase !== 'main' || s.stack.length || s.attackers.length || !s.tok[i] || s.peace) return s0;
     const atk = [...new Set(a.units)].map(k => p.board[k]).filter((u): u is Unit => !!u && canAttack(u));
     if (!atk.length) return s0;
-    s.tok[i] = false; s.attackers = atk.map(u => u.uid); s.blocks = {}; s.forced = [];
+    s.tok[i] = false; s.attackers = atk.map(u => u.uid); s.atkd = [...(s.atkd ?? []), ...s.attackers]; s.blocks = {}; s.forced = [];
     const taken = new Set<number>();
     const force = (u: Unit, c: Unit) => { s.blocks[String(u.uid)] = c.uid; s.forced.push(u.uid); taken.add(c.uid); };
     const ret = atk.filter(u => u.kw.includes('retador'));
@@ -375,6 +432,9 @@ export function step(s0: State, a: Action): State {
       const c = foe.board.filter(x => !taken.has(x.uid) && canBlock(u, x)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
       if (c) force(u, c);
     }
+    // Mando (Skaldrum): cada oficial que ataca da +1 de poder (esta ronda) al resto del asalto
+    const officers = atk.filter(u => u.kw.includes('mando'));
+    if (officers.length && atk.length > 1) { for (const m of officers) for (const x of atk) if (x !== m) x.ta += 1; s.log.push(`🎖 Mando: el asalto gana +${officers.length} de poder`); }
     s.phase = 'block'; s.active = o(i); s.passes = 0; s.log.push(`J${i + 1} declara ataque con ${atk.length} unidad(es)`);
   } else if (a.type === 'block') {
     if (s.phase !== 'block' || i !== o(s.token)) return s0;

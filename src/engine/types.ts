@@ -4,7 +4,11 @@ export type Keyword = 'barrera' | 'robovida' | 'arrollar' | 'letal' | 'rapido' |
   // Negatt: Marchito (no puede curarse ni regenerar; lo deja el daño necrótico)
   | 'marchito'
   // Boro: virus informático (salta de unidad en unidad y la daña)
-  | 'virus';
+  | 'virus'
+  // Skaldrum: Falange (aura de formación: +1 de vida por cada otra aliada con Falange, máx +2) y Mando (al atacar, el resto del asalto gana +1 de poder)
+  | 'falange' | 'mando'
+  // Markivton (piratas sin gobierno): saqueo (golpes al Nexo = Doblones), marea (cambia según la ronda) y andanada (cañonea al cerrar la ronda si no atacó)
+  | 'saqueo' | 'marea' | 'andanada';
 /** Velocidades de hechizo (burst/focus se resuelven al instante sin pasar prioridad; fast/slow van a la pila. */
 export type SpellSpeed = 'burst' | 'focus' | 'fast' | 'slow';
 export type Effect =
@@ -25,10 +29,19 @@ export type Effect =
   // Boro (cyberpunk fallido, mafioso): malware, virus, cortocircuito, hackeo, deuda y usura
   | { t: 'malware'; n: number } | { t: 'virus' } | { t: 'arco'; n: number } | { t: 'hack' } | { t: 'soborno' } | { t: 'trueque' }
   | { t: 'prestamo'; n: number; d: number } | { t: 'usura'; n: number } | { t: 'cobro'; n: number } | { t: 'tributo'; n: number }
-  | { t: 'overclock'; a: number; n: number } | { t: 'apagon' } | { t: 'copia' };
+  | { t: 'overclock'; a: number; n: number } | { t: 'apagon' } | { t: 'copia' }
+  // Skaldrum (precisión, estrategia y dominio)
+  | { t: 'certero'; n: number }                   // Tiro certero: n de daño a una enemiga; si la destruye, robas 1
+  | { t: 'augurio'; n: number }                   // mira las n cartas superiores: robas la de mayor coste, el resto va al fondo del mazo
+  | { t: 'dom'; fx: Effect[] }                    // Dominio: los efectos solo se aplican si controlas más unidades que el rival
+  // Markivton (piratas sin gobierno)
+  | { t: 'doblon'; n: number; unit?: boolean }    // añade n Doblones a tu mano (con unit: uno por cada unidad tuya, hasta n)
+  | { t: 'tide'; pleamar: Effect[]; bajamar: Effect[] }   // Marea: rondas impares = Pleamar, pares = Bajamar
+  | { t: 'paga'; n: number; fx: Effect[] };       // Paga n Doblones de tu mano: si puedes, los gastas y se aplican los efectos
 export interface CardDef { id: string; name: string; cost: number; type: 'unit' | 'spell'; atk: number; hp: number; kw: Keyword[]; text: string; fx: Effect[]; grow?: { a: number; h: number }; speed?: SpellSpeed; token?: boolean }
 /** ta/th: bonos temporales de la ronda (se revierten al final). */
-export interface Unit { uid: number; card: string; atk: number; hp: number; dmg: number; kw: Keyword[]; ta: number; th: number }
+export interface Unit { uid: number; card: string; atk: number; hp: number; dmg: number; kw: Keyword[]; ta: number; th: number;
+  /** Bono de vida de aura (Falange): se recalcula solo; no existe si vale 0. */ fb?: number }
 export interface Player { nexus: number; deck: string[]; hand: string[]; board: Unit[]; mana: number; maxMana: number; spell: number; played: string[] }
 export interface StackItem { card: string; owner: 0 | 1; target?: number }
 export interface State {
@@ -43,6 +56,8 @@ export interface State {
   cap?: [number, number]; extraDraw?: [number, number];
   /** Gas tóxico (Disnjav): rondas que le quedan; al cerrar cada ronda daña a las unidades sin Adaptado. */
   gas?: number;
+  /** Markivton: unidades (uid) que ya atacaron esta ronda; las Andanada que no atacaron cañonean al cerrar la ronda. */
+  atkd?: number[];
   /** Boro: deuda de maná por jugador (se descuenta al empezar su próxima ronda), usura (intereses sobre el Nexo) y apagón (sin hechizos esta ronda). */
   debt?: [number, number]; usura?: [number, number]; apagon?: [boolean, boolean];
 }

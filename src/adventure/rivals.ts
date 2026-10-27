@@ -89,10 +89,10 @@ export const NATIONS: Record<string, Nation> = {
     N('zhorak', 'Zhorak', 4, 'bor', 'Sicarios y traiciones', ['sicario:2', 'traicion:2', 'capo:2', 'pandilla:2', 'contrabandista:2', 'refuerzos:2', 'contrato:2', 'don:2', 'jefe:2', 'apagon', 'soborno', 'raterillo:2']),
     N('beo', 'Beo', 5, 'bor', 'El Sindicato manda', ['senor:2', 'jefe:2', 'don:2', 'enforcer:2', 'capo:2', 'refuerzos:2', 'ajuste:2', 'apagon:2', 'soborno:2', 'contrato:2', 'cobro:2', 'recaudador:2', 'cirujano:2', 'mercenario:2'], { boss: true })] },
   skaldrum: { id: 'skaldrum', name: 'Reino de Skaldrum', rivals: [
-    N('axeraide', 'Axeraide', 1, 'ska', 'La falange avanza', ['vigia:2', 'recluta:2', 'escudero:2', 'lancero:2', 'capitan:2', 'jinete:2', 'pesado:2', 'lanza:2', 'escudo:2', 'testudo:2', 'carga', 'reclutamiento']),
-    N('ullontras-hijo', 'Ullontras Hijo', 2, 'ska', 'Muralla de bronce', ['recluta:2', 'pesado:2', 'acropolis:2', 'oraculo:2', 'titan', 'testudo:2', 'escudo:2', 'estratega:2', 'capitan:2', 'lanza:2', 'veredicto']),
+    N('axeraide', 'Axeraide', 1, 'ska', 'La falange avanza', ['vigia:2', 'recluta:2', 'escudero:2', 'lancero', 'capitan', 'jinete:2', 'pesado', 'lanza', 'escudo', 'testudo:2', 'carga', 'reclutamiento']),
+    N('ullontras-hijo', 'Ullontras Hijo', 2, 'ska', 'Muralla de bronce', ['recluta:2', 'pesado:2', 'acropolis:2', 'oraculo', 'titan', 'testudo:2', 'escudo:2', 'estratega', 'escudero:2', 'lanza:2', 'veredicto']),
     N('julio', 'Julio', 3, 'ska', 'Caballería de la Orden', ['lancero:2', 'jinete:2', 'campeon:2', 'capitan:2', 'carga:2', 'asedio:2', 'strategos:2', 'estratega:2', 'lanza:2', 'escudero:2', 'veredicto']),
-    N('lurim', 'Lurim', 4, 'ska', 'Legión organizada', ['escudero:2', 'comandante:2', 'reclutamiento:2', 'estratega:2', 'orden:2', 'capitan:2', 'pesado:2', 'acropolis:2', 'testudo:2', 'veredicto:2', 'lanza:2']),
+    N('lurim', 'Lurim', 4, 'ska', 'Legión organizada', ['escudero:2', 'comandante', 'reclutamiento:2', 'estratega', 'orden:2', 'capitan', 'pesado:2', 'acropolis:2', 'testudo:2', 'veredicto', 'lanza']),
     N('oci', 'Oci', 5, 'ska', 'La Orden del Rey', ['rey', 'strategos', 'titan', 'oraculo', 'comandante', 'campeon:2', 'orden', 'veredicto', 'asedio', 'carga', 'estratega:2', 'acropolis', 'reclutamiento', 'escudo:2', 'capitan:2', 'jinete:2', 'recluta:2', 'lancero:2'], { boss: true })] },
   markivton: { id: 'markivton', name: 'Markivton', rivals: [
     N('nefri', 'Nefri', 1, 'mkv', 'Marineros de puerto', ['grumete_atr:2', 'gaviota:2', 'canonero:2', 'bohemio:2', 'contramaestre:2', 'tiburon:2', 'cofre:2', 'viento:2', 'fiesta:2', 'cocinero:2', 'abordaje']),
@@ -155,7 +155,7 @@ export const NATIONS: Record<string, Nation> = {
     N('bg', 'Bg', 5, 'dsj', 'Madre del aire irrespirable', ['madre', 'leviatan:2', 'alfa:2', 'behemot:2', 'hidra:2', 'quimico:2', 'recolector:2', 'tormenta:2', 'colapso:2', 'asfixia:2', 'fuga:2', 'nube:2', 'mascara', 'generacion:2', 'hongo:2', 'antidoto'], { boss: true })] },
 };
 /** Naciones jugables por ahora. El resto sigue definido en NATIONS pero aparece como "Próximamente". Para abrir una, añádela aquí. */
-export const PLAYABLE = ['arboris', 'lumis', 'umbra', 'luminarae', 'negatt', 'boro'];
+export const PLAYABLE = ['arboris', 'lumis', 'umbra', 'luminarae', 'negatt', 'boro', 'skaldrum', 'markivton'];
 export const faction = (r: Rival) => (r.deck.filter(i => i.startsWith('umb')).length > r.deck.length / 2 ? 'Umbra' : 'Luminarae');
 
 // ---------- Progreso (en este navegador) ----------

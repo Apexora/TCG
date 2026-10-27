@@ -1,9 +1,16 @@
 import { CARDS } from '../data/cards';
-import { atkOf, canAttack, canBlock, canPlay, curHp, targetKind } from '../engine/engine';
-import type { Action, State, Unit } from '../engine/types';
+import { atkOf, canAttack, canBlock, canPlay, curHp, targetKind, tideOf } from '../engine/engine';
+import type { Action, Effect, State, Unit } from '../engine/types';
 
-const dmgOf = (id: string) => CARDS[id].fx.reduce((a, e) => a + (e.t === 'dmgEnemy' || e.t === 'drain' ? e.n : 0), 0);
+const dmgOf = (id: string) => CARDS[id].fx.reduce((a, e) => a + (e.t === 'dmgEnemy' || e.t === 'drain' || e.t === 'certero' ? e.n : 0), 0);
 const rank = (u: Unit) => atkOf(u) * 10 + curHp(u);
+/** Efectos que de verdad se aplicarían hoy (Dominio, Marea y Paga dependen del estado). */
+function expand(s: State, i: number, fx: Effect[]): Effect[] {
+  const me = s.p[i], foe = s.p[1 - i];
+  return fx.flatMap(x => x.t === 'dom' ? (me.board.length > foe.board.length ? expand(s, i, x.fx) : [])
+    : x.t === 'tide' ? expand(s, i, tideOf(s) === 'pleamar' ? x.pleamar : x.bajamar)
+    : x.t === 'paga' ? (me.hand.filter(h => h === 'mkv_doblon').length >= x.n ? expand(s, i, x.fx) : []) : [x]);
+}
 function spellPlan(s: State, i: number): Action | null {
   const me = s.p[i], foe = s.p[1 - i]; let best: { a: Action; sc: number } | null = null;
   me.hand.forEach((id, k) => {
@@ -19,7 +26,7 @@ function spellPlan(s: State, i: number): Action | null {
       const t = [...pool].sort((a, b) => (heals ? b.dmg - a.dmg : rank(b) - rank(a)))[0]; if (!t) return; target = t.uid; sc = heals ? 2 + t.dmg : 3;
     } else {
       if (id === 'bor_malware') sc += 2;   // purgar el virus de la mano
-      for (const e of c.fx) {
+      for (const e of expand(s, i, c.fx)) {   // Dominio: solo cuenta si hoy controlas más unidades; Marea: la rama de hoy; Paga: solo si tienes los Doblones
         if (e.t === 'healNexus' && me.nexus <= 20 - e.n) sc += 2;
         else if (e.t === 'buffAll' && me.board.length >= 2) sc += 3;
         else if ((e.t === 'debuffEnemies' || e.t === 'dmgAll') && foe.board.length >= 2) sc += 3;
@@ -29,6 +36,7 @@ function spellPlan(s: State, i: number): Action | null {
         else if (e.t === 'frostAll' && foe.board.length >= 2) sc += 2;
         else if (e.t === 'gainMana' && me.hand.some(h => CARDS[h].type === 'unit' && CARDS[h].cost > me.mana)) sc += 2;
         else if (e.t === 'draw') sc += me.hand.length < 6 ? 2 : 0;
+        else if (e.t === 'doblon') sc += me.hand.length < 8 ? 1 : 0;
         else if (e.t === 'malware' && foe.hand.length < 10) sc += 3;
         else if (e.t === 'apagon' && foe.hand.some(h => CARDS[h].type === 'spell')) sc += 2;
         else if (e.t === 'arco' && foe.board.length >= 1) sc += 3;
