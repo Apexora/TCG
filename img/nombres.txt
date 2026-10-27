@@ -7,7 +7,7 @@ neg_acolito//, neg_penitente//, neg_heraldo//, neg_monje//, neg_sacerdote//, neg
 bor_raterillo//, bor_informante//, bor_pandilla//, bor_guardaespaldas//, bor_contrabandista//, bor_sicario//, bor_recaudador//, bor_dron//, bor_capo//, bor_mercenario//, bor_cirujano//, bor_don//, bor_enforcer//, bor_jefe//, bor_senor//, bor_botin//, bor_soborno//, bor_extorsion//, bor_traicion//, bor_cobro//, bor_contrato//, bor_apagon//, bor_refuerzos//, bor_ajuste//, bor_maton// (ficha)
 
 **Skaldrum (ska_)**
-ska_vigia, ska_recluta, ska_escudero, ska_lancero, ska_capitan, ska_jinete, ska_pesado, ska_campeon, ska_estratega, ska_acropolis, ska_comandante, ska_oraculo, ska_titan, ska_strategos, ska_rey, ska_lanza, ska_escudo, ska_testudo, ska_carga, ska_asedio, ska_reclutamiento, ska_veredicto, ska_orden, ska_hoplita (ficha)
+ska_vigia//, ska_recluta//, ska_escudero//, ska_lancero//, ska_capitan//, ska_jinete//, ska_pesado//, ska_campeon//, ska_estratega//, ska_acropolis//, ska_comandante//, ska_oraculo//, ska_titan//, ska_strategos//, ska_rey//, ska_lanza//, ska_escudo//, ska_testudo//, ska_carga//, ska_asedio//, ska_reclutamiento//, ska_veredicto//, ska_orden//, ska_hoplita// (ficha)
 
 **Markivton (mkv_)**
 mkv_grumete_atr, mkv_gaviota, mkv_canonero, mkv_bohemio, mkv_loro, mkv_corsario, mkv_contramaestre, mkv_tiburon, mkv_navegante, mkv_capitan, mkv_fragata, mkv_cocinero, mkv_arponero, mkv_kraken, mkv_galeon, mkv_rey, mkv_reparto, mkv_cofre, mkv_viento, mkv_abandonar, mkv_salva, mkv_abordaje, mkv_niebla, mkv_fiesta, mkv_tormenta, mkv_grumete (ficha)
