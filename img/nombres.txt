@@ -10,10 +10,10 @@ bor_raterillo//, bor_informante//, bor_pandilla//, bor_guardaespaldas//, bor_con
 ska_vigia//, ska_recluta//, ska_escudero//, ska_lancero//, ska_capitan//, ska_jinete//, ska_pesado//, ska_campeon//, ska_estratega//, ska_acropolis//, ska_comandante//, ska_oraculo//, ska_titan//, ska_strategos//, ska_rey//, ska_lanza//, ska_escudo//, ska_testudo//, ska_carga//, ska_asedio//, ska_reclutamiento//, ska_veredicto//, ska_orden//, ska_hoplita// (ficha)
 
 **Markivton (mkv_)**
-mkv_grumete_atr, mkv_gaviota, mkv_canonero, mkv_bohemio, mkv_loro, mkv_corsario, mkv_contramaestre, mkv_tiburon, mkv_navegante, mkv_capitan, mkv_fragata, mkv_cocinero, mkv_arponero, mkv_kraken, mkv_galeon, mkv_rey, mkv_reparto, mkv_cofre, mkv_viento, mkv_abandonar, mkv_salva, mkv_abordaje, mkv_niebla, mkv_fiesta, mkv_tormenta, mkv_grumete (ficha)
+mkv_grumete_atr//, mkv_gaviota//, mkv_canonero//, mkv_bohemio//, mkv_loro//, mkv_corsario//, mkv_contramaestre//, mkv_tiburon//, mkv_navegante//, mkv_capitan//, mkv_fragata//, mkv_cocinero//, mkv_arponero//, mkv_kraken//, mkv_galeon//, mkv_rey//, mkv_reparto//, mkv_cofre//, mkv_viento//, mkv_abandonar//, mkv_salva//, mkv_abordaje//, mkv_niebla//, mkv_fiesta//, mkv_tormenta//, mkv_grumete// (ficha)
 
 **Tribus Skaldrak (tsk_)**
-tsk_cachorro, tsk_aprendiz, tsk_guardian, tsk_hermano, tsk_chaman, tsk_lobo, tsk_cantor, tsk_ventisca, tsk_jefe, tsk_yeti, tsk_guerrera, tsk_hechicera, tsk_mamut, tsk_dragon, tsk_anciano, tsk_sabio, tsk_hoguera, tsk_aliento, tsk_escarcha, tsk_lanza, tsk_juramento, tsk_manada, tsk_ventiscaz, tsk_prision, tsk_aurora, tsk_lobezno (ficha)
+tsk_cachorro//, tsk_aprendiz//, tsk_guardian//, tsk_hermano//, tsk_chaman//, tsk_lobo//, tsk_cantor//, tsk_ventisca//, tsk_jefe//, tsk_yeti//, tsk_guerrera//, tsk_hechicera, tsk_mamut//, tsk_dragon//, tsk_anciano//, tsk_sabio//, tsk_hoguera//, tsk_aliento//, tsk_escarcha//, tsk_lanza//, tsk_juramento//, tsk_manada//, tsk_ventiscaz//, tsk_prision//, tsk_aurora//, tsk_lobezno// (ficha)
 
 **Psybernia (psy_)**
 psy_larva, psy_resto, psy_gusano, psy_carcelero, psy_cobaya, psy_quimera, psy_segador, psy_aborto, psy_reptante, psy_amalgama, psy_hibrido, psy_abominacion, psy_hidra, psy_coloso, psy_valeria, psy_bisturi, psy_suero, psy_inyeccion, psy_quirofano, psy_disecar, psy_amputar, psy_fusion, psy_cria, psy_arena, psy_purga, psy_engendro (ficha)
