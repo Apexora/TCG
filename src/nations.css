@@ -28,3 +28,6 @@
 .card.krn{--n:#a3a58b;--n2:#1a1c14;--nt:#e4e6d4;--ff:'Bebas Neue',sans-serif}
 .card.syl{--n:#b08a4a;--n2:#17210f;--nt:#eadfbf}
 .card.dsj{--n:#c6ff3d;--n2:#1b2606;--nt:#f1ffd0}
+
+/* Tribus Skaldrak: Glaciar (muro de hielo sobre el Nexo) */
+.pt .ward{margin-top:2px;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:700;color:#e8f6ff;background:linear-gradient(#2a6f9e,#0c2236);border:1px solid #bfe6ff;box-shadow:0 0 8px #8fd3ff88;text-align:center}

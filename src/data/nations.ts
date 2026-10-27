@@ -199,34 +199,40 @@ export const MARKIVTON: CardDef[] = [
   { ...S('mkv_doblon', 'Doblón', 0, 'burst', 'Ganas 1 de maná este turno. También sirve de moneda para las cartas que piden pagar Doblones.', [{ t: 'gainMana', n: 1 }]), token: true },
 ];
 
-/** TRIBUS SKALDRAK: montañas heladas. Hielo (0 de poder a uno o a todos), hermandad (bonos y curación al grupo) y manada de lobeznos. */
+/** TRIBUS SKALDRAK: clanes sin gobierno central de las montañas heladas; cada clan levanta su propio hielo para defenderse.
+ *  · Glaciar: un muro de hielo sobre el Nexo (máx. 6). Absorbe el daño enemigo antes de que llegue al Nexo y se gasta como munición (Avalancha: daño a una enemiga; Alud: daño a todas).
+ *    Mientras controles una unidad Glacial, el Glaciar crece +1 al cerrar cada ronda.
+ *  · Skanuj: raza de piel azulada, hecha al frío. Inmune a Escarcha y Pegada, y se alimenta del Glaciar (+1 de poder con 3 o más de Glaciar).
+ *  · Madura: las crías (Cachorro, Lobeznos, Aprendiz) evolucionan al cerrar la ronda si siguen en juego y no atacaron. */
 export const SKALDRAK: CardDef[] = [
-  U('tsk_cachorro', 'Cachorro de Lobo', 1, 2, 1),
-  U('tsk_aprendiz', 'Aprendiz de Hielo', 1, 1, 2, ['regenera']),
-  U('tsk_guardian', 'Guardián del Hielo', 2, 1, 4, ['duro']),
-  U('tsk_hermano', 'Hermano de Tribu', 2, 2, 1, [], 'Al jugarla: +1/+1 a otra aliada.', [{ t: 'buffOther', a: 1, h: 1 }]),
-  U('tsk_chaman', 'Chamán de Escarcha', 3, 2, 2, [], 'Al jugarla: la enemiga más fuerte tiene 0 de poder esta ronda.', [{ t: 'frost' }]),
+  { ...U('tsk_cachorro', 'Cachorro de Lobo', 1, 1, 1, ['madura'], 'Madura: si no ataca, al cerrar la ronda se convierte en Lobo Gris.'), evolve: 'tsk_lobogris' },
+  { ...U('tsk_aprendiz', 'Aprendiz de Hielo', 1, 1, 2, ['skanuj', 'madura'], 'Madura: si no ataca, al cerrar la ronda se convierte en Adepto de Hielo.'), evolve: 'tsk_adepto' },
+  U('tsk_guardian', 'Guardián del Hielo', 2, 1, 3, ['duro', 'glacial']),
+  U('tsk_hermano', 'Hermano de Tribu', 2, 2, 1, [], 'Al jugarla: +1 de Glaciar.', [{ t: 'glaciar', n: 1 }]),
+  U('tsk_chaman', 'Chamán de Escarcha', 3, 2, 2, ['skanuj'], 'Al jugarla: +1 de Glaciar.', [{ t: 'glaciar', n: 1 }]),
   U('tsk_lobo', 'Lobo Níveo', 3, 3, 2, ['rapido']),
-  U('tsk_cantor', 'Cantor de la Hoguera', 3, 2, 3, [], 'Al jugarla: cura 3 a tu Nexo.', [{ t: 'healNexus', n: 3 }]),
+  U('tsk_cantor', 'Cantor de la Hoguera', 3, 2, 3, [], 'Al jugarla: cura 3 a tu Nexo y +1 de Glaciar.', [{ t: 'healNexus', n: 3 }, { t: 'glaciar', n: 1 }]),
   U('tsk_ventisca', 'Espíritu de Ventisca', 3, 2, 3, ['elusivo']),
   U('tsk_jefe', 'Jefe de Clan', 4, 2, 4, [], 'Al jugarla: +1/+1 a tus unidades.', [{ t: 'buffAll', a: 1, h: 1 }]),
   U('tsk_yeti', 'Yeti de las Cumbres', 4, 3, 4, ['regenera']),
-  U('tsk_guerrera', 'Guerrera del Glaciar', 4, 3, 4, ['barrera']),
-  U('tsk_hechicera', 'Hechicera del Hielo', 5, 3, 4, [], 'Al jugarla: las unidades enemigas tienen 0 de poder esta ronda.', [{ t: 'frostAll' }]),
+  U('tsk_guerrera', 'Guerrera del Glaciar', 4, 3, 4, ['skanuj', 'barrera'], 'Al jugarla: +1 de Glaciar.', [{ t: 'glaciar', n: 1 }]),
+  U('tsk_hechicera', 'Hechicera del Hielo', 5, 3, 4, ['skanuj'], 'Al jugarla: inflige 1 a la enemiga más fuerte, +1 por cada Glaciar que gastes (hasta 3).', [{ t: 'avalancha', base: 1, max: 3 }]),
   U('tsk_mamut', 'Mamut de Lana', 5, 4, 6, ['duro']),
-  U('tsk_dragon', 'Dragón de Hielo', 6, 5, 4, ['elusivo'], 'Al jugarla: la enemiga más fuerte tiene 0 de poder esta ronda.', [{ t: 'frost' }]),
-  U('tsk_anciano', 'Anciano de la Fraternidad', 6, 4, 5, [], 'Al jugarla: +1/+1 a tus unidades y cura 3 a tu Nexo.', [{ t: 'buffAll', a: 1, h: 1 }, { t: 'healNexus', n: 3 }]),
-  U('tsk_sabio', 'Sabio Skanuj', 7, 5, 6, ['barrera', 'regenera'], 'Al jugarla: la enemiga más fuerte tiene 0 de poder esta ronda.', [{ t: 'frost' }]),
-  S('tsk_hoguera', 'Fuego de la Hoguera', 2, 'burst', 'Cura 4 a tu Nexo.', [{ t: 'healNexus', n: 4 }]),
-  S('tsk_aliento', 'Aliento Gélido', 2, 'fast', 'Una unidad enemiga tiene 0 de poder esta ronda.', [{ t: 'frost' }]),
-  S('tsk_escarcha', 'Escarcha Protectora', 2, 'fast', 'Una aliada gana Barrera.', [{ t: 'giveKw', kw: 'barrera' }]),
-  S('tsk_lanza', 'Lanza de Hielo', 3, 'fast', 'Inflige 3 a una unidad enemiga.', [{ t: 'dmgEnemy', n: 3 }]),
+  U('tsk_dragon', 'Dragón de Hielo', 6, 5, 4, ['elusivo'], 'Al jugarla: gasta hasta 6 de Glaciar: inflige 1 a todas las unidades enemigas por cada 2 gastados.', [{ t: 'alud', base: 0, max: 6 }]),
+  U('tsk_anciano', 'Anciano de la Fraternidad', 6, 4, 5, [], 'Al jugarla: +1/+1 a tus unidades y +2 de Glaciar.', [{ t: 'buffAll', a: 1, h: 1 }, { t: 'glaciar', n: 2 }]),
+  U('tsk_sabio', 'Sabio Skanuj', 7, 5, 6, ['skanuj', 'barrera', 'regenera', 'glacial'], 'Al jugarla: +2 de Glaciar y tus Skanuj ganan +1/+1.', [{ t: 'glaciar', n: 2 }, { t: 'buffSkanuj', a: 1, h: 1 }]),
+  S('tsk_hoguera', 'Fuego de la Hoguera', 2, 'burst', 'Cura 3 a tu Nexo y +1 de Glaciar.', [{ t: 'healNexus', n: 3 }, { t: 'glaciar', n: 1 }]),
+  S('tsk_aliento', 'Aliento Gélido', 2, 'fast', 'Inflige 2 a una unidad enemiga y +1 de Glaciar.', [{ t: 'dmgEnemy', n: 2 }, { t: 'glaciar', n: 1 }]),
+  S('tsk_escarcha', 'Muro de Hielo', 2, 'fast', '+2 de Glaciar.', [{ t: 'glaciar', n: 2 }]),
+  S('tsk_lanza', 'Lanza de Hielo', 3, 'fast', 'Inflige 3 a una unidad enemiga, +1 por cada Glaciar que gastes (hasta 3).', [{ t: 'avalancha', base: 3, max: 3 }]),
   S('tsk_juramento', 'Juramento de Hermandad', 3, 'fast', 'Tus unidades ganan +1/+2 esta ronda.', [{ t: 'tempBuffAll', a: 1, h: 2 }]),
-  S('tsk_manada', 'Llamado de la Manada', 3, 'slow', 'Invoca 2 Lobeznos.', [sum('tsk_lobezno', 2)]),
-  S('tsk_ventiscaz', 'Ventisca', 5, 'fast', 'Las unidades enemigas tienen 0 de poder esta ronda.', [{ t: 'frostAll' }]),
+  S('tsk_manada', 'Llamado de la Manada', 3, 'slow', 'Invoca 2 Lobeznos (maduran en Lobos Grises).', [sum('tsk_lobezno', 2)]),
+  S('tsk_ventiscaz', 'Ventisca', 5, 'fast', 'Gasta hasta 6 de Glaciar: inflige 1 a todas las unidades enemigas por cada 2 gastados.', [{ t: 'alud', base: 0, max: 6 }]),
   S('tsk_prision', 'Prisión de Hielo', 5, 'slow', 'Destruye una unidad enemiga.', [{ t: 'destroyEnemy' }]),
-  S('tsk_aurora', 'Aurora Boreal', 5, 'slow', 'Cura 4 a tu Nexo y tus unidades ganan +1/+1.', [{ t: 'healNexus', n: 4 }, { t: 'buffAll', a: 1, h: 1 }]),
-  T('tsk_lobezno', 'Lobezno', 2, 1, [], 'Ficha.'),
+  S('tsk_aurora', 'Aurora Boreal', 5, 'slow', '+2 de Glaciar y tus unidades ganan +1/+1.', [{ t: 'glaciar', n: 2 }, { t: 'buffAll', a: 1, h: 1 }]),
+  { ...T('tsk_lobezno', 'Lobezno', 1, 1, ['madura'], 'Ficha. Madura: si no ataca, al cerrar la ronda se convierte en Lobo Gris.'), evolve: 'tsk_lobogris' },
+  T('tsk_lobogris', 'Lobo Gris', 2, 2, [], 'Ficha. Es la forma adulta del Cachorro y del Lobezno.'),
+  T('tsk_adepto', 'Adepto de Hielo', 2, 3, ['skanuj', 'glacial'], 'Ficha. Es la forma adulta del Aprendiz de Hielo.'),
 ];
 
 export const NATION_CARDS: CardDef[] = [...LUMIS, ...ARBORIS, ...NEGATT, ...BORO, ...SKALDRUM, ...MARKIVTON, ...SKALDRAK, ...NATION_CARDS_2];

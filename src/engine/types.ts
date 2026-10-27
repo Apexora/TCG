@@ -8,7 +8,9 @@ export type Keyword = 'barrera' | 'robovida' | 'arrollar' | 'letal' | 'rapido' |
   // Skaldrum: Falange (aura de formación: +1 de vida por cada otra aliada con Falange, máx +2) y Mando (al atacar, el resto del asalto gana +1 de poder)
   | 'falange' | 'mando'
   // Markivton (piratas sin gobierno): saqueo (golpes al Nexo = Doblones), marea (cambia según la ronda) y andanada (cañonea al cerrar la ronda si no atacó)
-  | 'saqueo' | 'marea' | 'andanada';
+  | 'saqueo' | 'marea' | 'andanada'
+  // Tribus Skaldrak (clanes de las montañas heladas): glacial (levanta el Glaciar), skanuj (raza de piel azul, hecha al frío) y madura (la cría evoluciona)
+  | 'glacial' | 'skanuj' | 'madura';
 /** Velocidades de hechizo (burst/focus se resuelven al instante sin pasar prioridad; fast/slow van a la pila. */
 export type SpellSpeed = 'burst' | 'focus' | 'fast' | 'slow';
 export type Effect =
@@ -37,11 +39,18 @@ export type Effect =
   // Markivton (piratas sin gobierno)
   | { t: 'doblon'; n: number; unit?: boolean }    // añade n Doblones a tu mano (con unit: uno por cada unidad tuya, hasta n)
   | { t: 'tide'; pleamar: Effect[]; bajamar: Effect[] }   // Marea: rondas impares = Pleamar, pares = Bajamar
-  | { t: 'paga'; n: number; fx: Effect[] };       // Paga n Doblones de tu mano: si puedes, los gastas y se aplican los efectos
-export interface CardDef { id: string; name: string; cost: number; type: 'unit' | 'spell'; atk: number; hp: number; kw: Keyword[]; text: string; fx: Effect[]; grow?: { a: number; h: number }; speed?: SpellSpeed; token?: boolean }
+  | { t: 'paga'; n: number; fx: Effect[] }        // Paga n Doblones de tu mano: si puedes, los gastas y se aplican los efectos
+  // Tribus Skaldrak: el Glaciar es un muro de hielo sobre tu Nexo (absorbe el daño enemigo) y también munición de sus hechizos
+  | { t: 'glaciar'; n: number }                   // +n de Glaciar (máx. 6)
+  | { t: 'avalancha'; base: number; max: number } // daño a una enemiga: base + el Glaciar que gastes (hasta max)
+  | { t: 'alud'; base: number; max: number }      // daño a TODAS las enemigas: base + la mitad del Glaciar que gastes (hasta max)
+  | { t: 'buffSkanuj'; a: number; h: number };    // +a/+h permanentes a tus unidades Skanuj
+export interface CardDef { id: string; name: string; cost: number; type: 'unit' | 'spell'; atk: number; hp: number; kw: Keyword[]; text: string; fx: Effect[]; grow?: { a: number; h: number }; speed?: SpellSpeed; token?: boolean;
+  /** Madura (Skaldrak): carta en la que se transforma al cerrar la ronda si sigue en juego. */ evolve?: string }
 /** ta/th: bonos temporales de la ronda (se revierten al final). */
 export interface Unit { uid: number; card: string; atk: number; hp: number; dmg: number; kw: Keyword[]; ta: number; th: number;
-  /** Bono de vida de aura (Falange): se recalcula solo; no existe si vale 0. */ fb?: number }
+  /** Bono de vida de aura (Falange): se recalcula solo; no existe si vale 0. */ fb?: number;
+  /** Bono de poder de aura (Skanuj, según el Glaciar): se recalcula solo; no existe si vale 0. */ fa?: number }
 export interface Player { nexus: number; deck: string[]; hand: string[]; board: Unit[]; mana: number; maxMana: number; spell: number; played: string[] }
 export interface StackItem { card: string; owner: 0 | 1; target?: number }
 export interface State {
@@ -60,6 +69,8 @@ export interface State {
   atkd?: number[];
   /** Boro: deuda de maná por jugador (se descuenta al empezar su próxima ronda), usura (intereses sobre el Nexo) y apagón (sin hechizos esta ronda). */
   debt?: [number, number]; usura?: [number, number]; apagon?: [boolean, boolean];
+  /** Skaldrak: Glaciar de cada jugador (muro de hielo que absorbe el daño enemigo al Nexo). */
+  ward?: [number, number];
 }
 export type Action =
   | { type: 'play'; hand: number; target?: number } | { type: 'pass' } | { type: 'attack'; units: number[]; challenge?: Record<string, number> }

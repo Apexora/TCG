@@ -120,7 +120,7 @@ function portrait(p: Player, i: number, label: string): string {
   const gems = Array.from({ length: p.maxMana }, (_, k) => `<u class="${k < p.mana ? 'on' : ''}"></u>`).join('');
   const av = i === 0 ? myAvatar : online && i === 1 ? foeAvatar : '';   // foto de perfil: la tuya o, online, la del rival
   return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${av && !isImg(av) ? esc(av) : fac(i) ? '☾' : '☀'}</span>${av ? (isImg(av) ? `<img src="${esc(av)}" alt="" onerror="this.remove()">` : '') : adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
-    <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>
+    <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>${s.ward?.[i] ? `<div class="ward" title="Glaciar: absorbe ${s.ward[i]} de daño al Nexo">❄ ${s.ward[i]}</div>` : ''}
     <div class="pname">${label}</div><div class="pmana">${gems}<span class="sm">${[0, 1, 2].map(k => `<i class="${k < p.spell ? 'on' : ''}"></i>`).join('')}</span></div></div>`;
 }
 

@@ -17,7 +17,7 @@ export function view(g: State, me: Seat): State {
   return {
     ...g, p: [g.p[1], g.p[0]], token: f(g.token), active: f(g.active),
     winner: g.winner === null || g.winner === -1 ? g.winner : f(g.winner),
-    tok: [g.tok[1], g.tok[0]], mull: [g.mull[1], g.mull[0]],
+    tok: [g.tok[1], g.tok[0]], mull: [g.mull[1], g.mull[0]], ward: g.ward ? [g.ward[1], g.ward[0]] : undefined,
     stack: g.stack.map(x => ({ ...x, owner: f(x.owner) })),
   };
 }

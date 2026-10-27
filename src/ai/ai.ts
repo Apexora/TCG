@@ -2,7 +2,7 @@ import { CARDS } from '../data/cards';
 import { atkOf, canAttack, canBlock, canPlay, curHp, targetKind, tideOf } from '../engine/engine';
 import type { Action, Effect, State, Unit } from '../engine/types';
 
-const dmgOf = (id: string) => CARDS[id].fx.reduce((a, e) => a + (e.t === 'dmgEnemy' || e.t === 'drain' || e.t === 'certero' ? e.n : 0), 0);
+const dmgOf = (id: string) => CARDS[id].fx.reduce((a, e) => a + (e.t === 'dmgEnemy' || e.t === 'drain' || e.t === 'certero' ? e.n : e.t === 'avalancha' ? e.base : 0), 0);
 const rank = (u: Unit) => atkOf(u) * 10 + curHp(u);
 /** Efectos que de verdad se aplicarían hoy (Dominio, Marea y Paga dependen del estado). */
 function expand(s: State, i: number, fx: Effect[]): Effect[] {
@@ -18,7 +18,7 @@ function spellPlan(s: State, i: number): Action | null {
     const tk = targetKind(id); let sc = 0, target: number | undefined;
     if (tk === 'enemy') {
       const list = [...foe.board].sort((a, b) => rank(b) - rank(a)), d = dmgOf(id);
-      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither' || e.t === 'virus') ? list[0] : undefined);
+      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'avalancha' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither' || e.t === 'virus') ? list[0] : undefined);
       if (!t || (c.fx.some(e => e.t === 'sacDmg') && me.board.length < 2)) return;
       target = t.uid; sc = rank(t) / 2 + c.cost;
     } else if (tk === 'ally') {
@@ -34,6 +34,8 @@ function spellPlan(s: State, i: number): Action | null {
         else if (e.t === 'tempBuffAll' && me.board.length >= 2 && s.tok[i]) sc += 3;
         else if (e.t === 'summon' && me.board.length <= 4) sc += 3;
         else if (e.t === 'frostAll' && foe.board.length >= 2) sc += 2;
+        else if (e.t === 'glaciar' && (s.ward?.[i] ?? 0) + e.n <= 6) sc += 2;
+        else if (e.t === 'alud' && foe.board.length >= 1) sc += (s.ward?.[i] ?? 0) >= 4 ? 4 : 1;
         else if (e.t === 'gainMana' && me.hand.some(h => CARDS[h].type === 'unit' && CARDS[h].cost > me.mana)) sc += 2;
         else if (e.t === 'draw') sc += me.hand.length < 6 ? 2 : 0;
         else if (e.t === 'doblon') sc += me.hand.length < 8 ? 1 : 0;

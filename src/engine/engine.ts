@@ -17,13 +17,13 @@ function draw(s: State, i: number, n: number) {
   }
 }
 const heal = (s: State, i: number, n: number) => { s.p[i].nexus = Math.min(s.cap?.[i] ?? 20, s.p[i].nexus + n); };
-export const atkOf = (u: Unit) => Math.max(0, u.atk + u.ta);
+export const atkOf = (u: Unit) => Math.max(0, u.atk + u.ta + (u.fa ?? 0));
 export const curHp = (u: Unit) => u.hp + u.th + (u.fb ?? 0) - u.dmg;
 const kill = (u: Unit) => { u.dmg = u.hp + u.th + 999; };
 const power = (u: Unit) => atkOf(u) * 1e6 + curHp(u) * 1e3 + CARDS[u.card].cost;
 const strongest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) > power(b) ? u : b), undefined);
 const weakest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) < power(b) ? u : b), undefined);
-const ENEMY_T = ['dmgEnemy', 'certero', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
+const ENEMY_T = ['dmgEnemy', 'avalancha', 'certero', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
 /** Objetivo manual que exige un hechizo (null = sin objetivo). */
 export function targetKind(id: string): 'enemy' | 'ally' | null {
   const c = CARDS[id]; if (!c || c.type !== 'spell') return null;
@@ -42,6 +42,29 @@ export function canBlock(a: Unit, b: Unit): boolean {
 }
 /** Raíz (Sylvaris) y Pegada (Pongí) no pueden atacar. */
 export const canAttack = (u: Unit): boolean => !u.kw.includes('raiz') && !u.kw.includes('pegada');
+
+/** Glaciar (Tribus Skaldrak): muro de hielo sobre el Nexo. Absorbe el daño enemigo al Nexo antes de que llegue y se gasta como munición (Avalancha, Alud). */
+const WARD_MAX = 6;
+export const wardOf = (s: State, i: number) => s.ward?.[i] ?? 0;
+function addWard(s: State, i: number, n: number) { s.ward = s.ward ?? [0, 0]; s.ward[i] = Math.min(WARD_MAX, s.ward[i] + n); }
+function spendWard(s: State, i: number, max: number): number { const n = Math.min(max, wardOf(s, i)); if (n > 0) s.ward![i] -= n; return n; }
+/** Daño enemigo al Nexo del jugador i: el Glaciar lo absorbe primero. */
+function hitNexus(s: State, i: number, n: number) {
+  if (n <= 0) return;
+  const a = Math.min(n, wardOf(s, i));
+  if (a > 0) { s.ward![i] -= a; s.log.push(`❄ El Glaciar de J${i + 1} absorbe ${a} de daño`); }
+  s.p[i].nexus -= n - a;
+}
+/** Skanuj: sangre fría. Inmune a la Escarcha (0 de poder) y a la Pegada. */
+const coldBlooded = (u: Unit) => u.kw.includes('skanuj');
+/** Madura (Skaldrak): la cría evoluciona. Conserva las mejoras permanentes y las palabras clave ganadas. */
+function mature(s: State, u: Unit) {
+  const from = CARDS[u.card], to = from?.evolve ? CARDS[from.evolve] : undefined; if (!to) return;
+  const da = u.atk - from.atk, dh = u.hp - from.hp, gained = u.kw.filter(k => !from.kw.includes(k) && k !== 'madura');
+  u.card = to.id; u.atk = Math.max(0, to.atk + da); u.hp = Math.max(1, to.hp + dh); u.kw = [...new Set([...to.kw, ...gained])];
+  u.dmg = Math.min(u.dmg, u.hp - 1);
+  s.log.push(`🐺 {${from.id}} madura y se convierte en {${to.id}}`);
+}
 
 /** Invoca `n` copias de una carta (ficha) respetando el límite de 6 unidades. */
 function spawn(s: State, i: number, id: string, n: number) {
@@ -110,7 +133,7 @@ function endRound(s: State) {
   // Andanada (Markivton): cada barco que se quedó en puerto (no atacó) cañonea a la unidad enemiga más fuerte; sin unidades, al Nexo
   for (const i of [0, 1] as const) {
     const guns = s.p[i].board.filter(u => u.kw.includes('andanada') && !(s.atkd ?? []).includes(u.uid));
-    for (const g of guns) { const t = strongest(s.p[o(i)].board.filter(x => curHp(x) > 0)); if (t) dealDamage(s, t, 1, { u: g, owner: i }); else s.p[o(i)].nexus -= 1; }
+    for (const g of guns) { const t = strongest(s.p[o(i)].board.filter(x => curHp(x) > 0)); if (t) dealDamage(s, t, 1, { u: g, owner: i }); else hitNexus(s, o(i), 1); }
     if (guns.length) s.log.push(`💥 Andanada: J${i + 1} cañonea con ${guns.length} barco(s)`);
   }
   cleanup(s); checkWin(s);
@@ -142,6 +165,11 @@ function endRound(s: State) {
   // Mutante (Psybernia): +2 de poder y -1 de vida permanentes al cerrar la ronda (su cuerpo se deteriora)
   for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('mutante')) { u.atk += 2; u.hp -= 1; } });
   cleanup(s);
+  // Glacial (Skaldrak): si controlas alguna unidad Glacial, el Glaciar crece +1 al cerrar la ronda
+  for (const i of [0, 1]) { if (s.p[i].board.some(u => u.kw.includes('glacial'))) { addWard(s, i, 1); s.log.push(`❄ Glacial: J${i + 1} levanta 1 de Glaciar`); } }
+  // Madura (Skaldrak): las crías que siguen en juego y no salieron a pelear evolucionan
+  for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('madura') && !(s.atkd ?? []).includes(u.uid)) mature(s, u); });
+  cleanup(s);
   // Raíz (Sylvaris): cada Raíz da vida a un Retoño al cerrar la ronda
   for (const i of [0, 1]) { const n = s.p[i].board.filter(u => u.kw.includes('raiz')).length; if (n) spawn(s, i, 'syl_retono', n); }
   checkWin(s); if (s.winner === null) startRound(s);
@@ -162,6 +190,8 @@ function syncAuras(s: State) {
       if (f) u.fb = f; else delete u.fb;
     }
   }
+  // Skanuj (Skaldrak): se alimentan del Glaciar: +1 de poder con 3 o más de Glaciar
+  s.p.forEach((p, i) => { const a = Math.min(1, Math.floor(wardOf(s, i) / 3)); for (const u of p.board) { if (a && u.kw.includes('skanuj')) u.fa = a; else delete u.fa; } });
 }
 function cleanup(s: State) {
   for (let changed = true; changed;) {
@@ -204,7 +234,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
   switch (e.t) {
     case 'healNexus': heal(s, i, e.n); break;
     case 'hurtNexus': me.nexus -= e.n; break;
-    case 'dmgNexus': foe.nexus -= e.n; break;
+    case 'dmgNexus': hitNexus(s, o(i), e.n); break;
     case 'draw': draw(s, i, e.n); break;
     case 'buffOther': { const t = strongest(me.board.filter(u => u !== src)); if (t) { t.atk += e.a; t.hp += e.h; } break; }
     case 'buffAlly': { const t = tgt ?? strongest(me.board); if (t) { t.atk += e.a; t.hp += e.h; } break; }
@@ -216,7 +246,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'dmgEnemy': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); } break; }
     case 'drain': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
     case 'dmgAll': foe.board.forEach(u => { if (e.necro) necroDamage(s, u, e.n); else dealDamage(s, u, e.n); }); break;
-    case 'frost': { const t = tgt ?? strongest(foe.board); if (t) t.ta -= atkOf(t); break; }
+    case 'frost': { const t = tgt ?? strongest(foe.board); if (t && !coldBlooded(t)) t.ta -= atkOf(t); break; }
     case 'sacDraw': { const v = weakest(me.board.filter(u => u !== src)); if (v) { kill(v); cleanup(s); draw(s, i, e.n); } break; }
     case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(foe.board); if (v && t) { const a = atkOf(v); kill(v); if (e.necro) necroDamage(s, t, a); else dealDamage(s, t, a); } break; }
     case 'debuffEnemies': foe.board.forEach(u => { u.atk = Math.max(0, u.atk - e.a); u.hp -= e.h; }); break;
@@ -232,7 +262,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       break;
     }
     case 'tregua': s.peace = true; s.log.push('☮ Tregua: esta ronda nadie puede atacar'); break;
-    case 'chicle': { const t = tgt ?? strongest(foe.board); if (t && !t.kw.includes('pegada')) t.kw.push('pegada'); break; }
+    case 'chicle': { const t = tgt ?? strongest(foe.board); if (t && !t.kw.includes('pegada') && !coldBlooded(t)) t.kw.push('pegada'); break; }
     case 'peaje': foe.mana = Math.max(0, foe.mana - e.n); break;
     case 'poda': { const t = weakest(foe.board); if (t) kill(t); break; }
     case 'gas': s.gas = Math.max(s.gas ?? 0, e.n); s.log.push(`☣ Gas tóxico: ${s.gas} ronda(s)`); break;
@@ -265,7 +295,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     }
     case 'prestamo': me.mana = Math.min(10, me.mana + e.n); s.debt = s.debt ?? [0, 0]; s.debt[i] += e.d; s.log.push(`💵 Préstamo: +${e.n} de maná ahora, −${e.d} al empezar la próxima ronda`); break;
     case 'usura': s.usura = s.usura ?? [0, 0]; s.usura[o(i)] = Math.min(3, s.usura[o(i)] + e.n); s.log.push('💸 El Nexo rival entra en usura'); break;
-    case 'cobro': { const n = Math.min(e.n, me.board.length); if (n > 0) foe.nexus -= n; break; }   // cada unidad tuya cobra 1 de Nexo al rival
+    case 'cobro': { const n = Math.min(e.n, me.board.length); if (n > 0) hitNexus(s, o(i), n); break; }   // cada unidad tuya cobra 1 de Nexo al rival
     case 'tributo': { const n = Math.min(e.n, me.board.filter(u => u.card === 'bor_maton').length); me.mana = Math.min(10, me.mana + n); break; }   // cada Matón paga 1 de maná
     case 'overclock': me.board.forEach(u => { u.ta += e.a; const d = Math.min(e.n, curHp(u) - 1); if (d > 0) dealDamage(s, u, d); }); break;   // sobrecarga: +poder y daño sin matar
     case 'apagon': s.apagon = s.apagon ?? [false, false]; s.apagon[o(i)] = true; foe.spell = 0; s.log.push('🌑 Apagón: el rival no puede lanzar hechizos esta ronda'); break;
@@ -287,6 +317,17 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'dom': // Dominio (Skaldrum): solo si controlas más unidades que el rival
       if (me.board.length > foe.board.length) { s.log.push('🏛 Dominio: controlas el campo'); e.fx.forEach(f => applyFx(s, i, f, src, tgt)); }
       break;
+    case 'glaciar': addWard(s, i, e.n); s.log.push(`❄ Glaciar: J${i + 1} levanta ${e.n} (${wardOf(s, i)})`); break;
+    case 'avalancha': { // Avalancha: gasta Glaciar para golpear con más fuerza a una enemiga
+      const t = tgt ?? strongest(foe.board);
+      if (t) { const sp = spendWard(s, i, e.max); dealDamage(s, t, e.base + sp); if (sp) s.log.push(`🏔 Avalancha: se gastan ${sp} de Glaciar`); }
+      break;
+    }
+    case 'alud': { // Alud: gasta Glaciar para barrer a todas las enemigas
+      if (foe.board.length) { const sp = spendWard(s, i, e.max), d = e.base + Math.floor(sp / 2); if (sp) s.log.push(`🏔 Alud: se gastan ${sp} de Glaciar`); if (d > 0) foe.board.forEach(u => dealDamage(s, u, d)); }
+      break;
+    }
+    case 'buffSkanuj': me.board.forEach(u => { if (u.kw.includes('skanuj')) { u.atk += e.a; u.hp += e.h; } }); break;
     case 'doblon': loot(s, i, e.unit ? Math.min(e.n, me.board.length) : e.n); break;
     case 'tide': { const pl = tideOf(s) === 'pleamar'; s.log.push(pl ? '🌊 Pleamar' : '🌊 Bajamar'); (pl ? e.pleamar : e.bajamar).forEach(f => applyFx(s, i, f, src, tgt)); break; }
     case 'paga': { // paga con Doblones de tu mano; si no te alcanzan, no pasa nada
@@ -294,7 +335,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       if (idx.length >= e.n) { for (const k of idx.slice(0, e.n).reverse()) me.hand.splice(k, 1); s.log.push(`🪙 J${i + 1} paga ${e.n} Doblón(es)`); e.fx.forEach(f => applyFx(s, i, f, src, tgt)); }
       break;
     }
-    case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
+    case 'frostAll': foe.board.forEach(u => { if (!coldBlooded(u)) u.ta -= atkOf(u); }); break;
     case 'silence': { const t = tgt ?? strongest(foe.board); if (t) t.kw = []; break; }
     case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;
     case 'destroyEnemy': { const t = tgt ?? strongest(foe.board); if (t) kill(t); break; }
@@ -348,7 +389,7 @@ function resolveCombat(s: State) {
   const pairs = s.attackers.map(uid => A.board.find(u => u.uid === uid)).filter((u): u is Unit => !!u)
     .map(u => ({ u, had: s.blocks[String(u.uid)] !== undefined, b: D.board.find(x => x.uid === s.blocks[String(u.uid)]) }));
   const struck = new Set<number>(), nex = (u: Unit, n: number) => {
-    if (n <= 0) return; s.p[df].nexus -= n; if (u.kw.includes('robovida')) heal(s, at, n);
+    if (n <= 0) return; hitNexus(s, df, n); if (u.kw.includes('robovida')) heal(s, at, n);
     if (u.kw.includes('saqueo')) { loot(s, at, 1); s.log.push('🪙 Saqueo: un Doblón a la mano de J' + (at + 1)); }
   };
   const hit = (src: Unit, owner: number, t: Unit) => {

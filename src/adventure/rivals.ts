@@ -155,7 +155,7 @@ export const NATIONS: Record<string, Nation> = {
     N('bg', 'Bg', 5, 'dsj', 'Madre del aire irrespirable', ['madre', 'leviatan:2', 'alfa:2', 'behemot:2', 'hidra:2', 'quimico:2', 'recolector:2', 'tormenta:2', 'colapso:2', 'asfixia:2', 'fuga:2', 'nube:2', 'mascara', 'generacion:2', 'hongo:2', 'antidoto'], { boss: true })] },
 };
 /** Naciones jugables por ahora. El resto sigue definido en NATIONS pero aparece como "Próximamente". Para abrir una, añádela aquí. */
-export const PLAYABLE = ['arboris', 'lumis', 'umbra', 'luminarae', 'negatt', 'boro', 'skaldrum', 'markivton'];
+export const PLAYABLE = ['arboris', 'lumis', 'umbra', 'luminarae', 'negatt', 'boro', 'skaldrum', 'markivton', 'tribus'];
 export const faction = (r: Rival) => (r.deck.filter(i => i.startsWith('umb')).length > r.deck.length / 2 ? 'Umbra' : 'Luminarae');
 
 // ---------- Progreso (en este navegador) ----------
