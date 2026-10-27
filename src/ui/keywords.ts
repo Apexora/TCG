@@ -18,7 +18,7 @@ export const KWD: Record<Keyword, string> = {
   marea: 'Pleamar (rondas impares): +2 de poder. Bajamar (rondas pares): +2 de vida. Solo dura la ronda.',
   andanada: 'si no atacó esta ronda, al cerrarla cañonea: 1 de daño a la unidad enemiga más fuerte (al Nexo si no hay unidades).',
   glacial: 'mientras la controles, tu Glaciar crece +1 al cerrar cada ronda (no se acumula por varias Glacial). El Glaciar es un muro de hielo (máx. 6) que absorbe el daño enemigo a tu Nexo.',
-  skanuj: 'raza de piel azulada, hecha al frío: inmune a la Escarcha (0 de poder) y a la Pegada. Gana +1 de poder si tienes 3 o más de Glaciar.',
+  skanuj: 'raza de piel azulada, hecha al frío: inmune a Silenciar, Virus, Gas tóxico y Marchito. Gana +1 de poder si tienes 3 o más de Glaciar.',
   madura: 'si sigue en juego y no atacó esta ronda, al cerrarla madura y se transforma en su forma adulta (ver su texto), conservando sus mejoras.',
   virus: 'infectada: al cerrar cada ronda recibe 1 de daño y el virus salta a otra unidad de su bando. Perder las palabras clave lo cura.',
 };

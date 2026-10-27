@@ -1,0 +1,34 @@
+/* Escena viva del menú principal (ver menuscene.ts). Tamaños en "u" = 1vh (limitado por el ancho en pantallas poco anchas). */
+body #title{background:radial-gradient(ellipse 75% 95% at 72% 50%,#33206f 0,#170d38 42%,#08050f 78%,#050309 100%)}
+body #title .t-art{display:none}
+body #title .t-bg{opacity:.55}
+body #title .t-moon{animation:moonB 7s ease-in-out infinite alternate}
+@keyframes moonB{to{transform:scale(1.05);box-shadow:0 0 130px #7a54ff55}}
+body #title::after{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;background:linear-gradient(90deg,#05030acc 0,#05030a66 28%,transparent 44%)}
+#title .t-stage{--u:min(1vh,.55vw);position:absolute;right:0;top:0;bottom:0;width:calc(var(--u)*132);z-index:2;pointer-events:none}
+.t-stage .ch{position:absolute;margin:0;will-change:transform}
+.t-stage .ent,.t-stage .flt{position:relative;width:100%;height:100%}
+.t-stage .ch img{position:relative;display:block;width:100%;height:100%;user-select:none;filter:drop-shadow(0 0 3px rgba(var(--gr),.7)) drop-shadow(0 0 22px rgba(var(--gr),.35)) drop-shadow(0 calc(var(--u)*1.5) calc(var(--u)*2.5) #000a)}
+.t-stage .c-pluma{height:calc(var(--u)*84);aspect-ratio:740/1000;left:33%;bottom:calc(var(--u)*6);z-index:1;--ix:calc(var(--u)*-4)}
+.t-stage .c-doria{height:calc(var(--u)*60);aspect-ratio:880/947;right:-3%;bottom:calc(var(--u)*34);z-index:2;--ix:calc(var(--u)*12)}
+.t-stage .c-lurim{height:calc(var(--u)*88);aspect-ratio:642/1000;left:1%;bottom:calc(var(--u)*-2);z-index:3;--ix:calc(var(--u)*-12)}
+.t-stage .c-nefri{height:calc(var(--u)*66);aspect-ratio:459/1000;left:30%;bottom:calc(var(--u)*-3);z-index:5;--ix:calc(var(--u)*-8)}
+.t-stage .c-solara{height:calc(var(--u)*84);aspect-ratio:700/1000;right:5%;bottom:calc(var(--u)*-2);z-index:6;--ix:calc(var(--u)*14)}
+@keyframes chIn{from{opacity:0;transform:translateX(var(--ix)) scale(.93);filter:blur(10px)}to{opacity:1;transform:none;filter:blur(0)}}
+.t-stage .ent{animation:chIn 1.25s cubic-bezier(.2,.8,.2,1) var(--del) both}
+@keyframes chFloat{from{transform:translateY(0) rotate(-.25deg) scale(1)}to{transform:translateY(calc(var(--u)*-1.4)) rotate(.3deg) scale(1.012)}}
+.t-stage .flt{transform-origin:50% 100%;animation:chFloat var(--fd) ease-in-out calc(var(--del) + 1s) infinite alternate both}
+.t-stage .glow{position:absolute;left:-25%;right:-25%;top:5%;bottom:-5%;pointer-events:none;mix-blend-mode:screen;opacity:.6;background:radial-gradient(closest-side,rgba(var(--gr),.5),rgba(var(--gr),.12) 60%,transparent 100%);animation:glowP calc(var(--fd)*.7) ease-in-out infinite alternate}
+@keyframes glowP{to{opacity:1;transform:scale(1.08)}}
+.t-stage .st-rays{position:absolute;left:50%;top:48%;width:calc(var(--u)*190);aspect-ratio:1;margin:calc(var(--u)*-95) 0 0 calc(var(--u)*-95);mix-blend-mode:screen;background:repeating-conic-gradient(from 0deg,rgba(190,150,255,.16) 0 5deg,transparent 5deg 16deg);-webkit-mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);animation:rayS 90s linear infinite}
+@keyframes rayS{to{transform:rotate(360deg)}}
+.t-stage .st-halo{position:absolute;left:28%;top:16%;width:62%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(150,100,255,.4),rgba(80,40,170,.16) 45%,transparent 70%);filter:blur(10px);animation:haloB 6s ease-in-out infinite alternate}
+@keyframes haloB{to{transform:scale(1.1);opacity:.7}}
+.t-stage .st-fog{position:absolute;left:-10%;right:-10%;bottom:-6%;height:45%;z-index:4;filter:blur(24px);background:radial-gradient(ellipse at 30% 60%,rgba(160,120,255,.24),transparent 60%),radial-gradient(ellipse at 75% 50%,rgba(70,220,255,.15),transparent 60%);animation:fogA 22s ease-in-out infinite alternate}
+.t-stage .st-fog.b{bottom:auto;top:-8%;height:40%;opacity:.7;animation-duration:30s;animation-direction:alternate-reverse}
+@keyframes fogA{from{transform:translateX(-6%)}to{transform:translateX(6%) scale(1.08)}}
+.t-stage .st-flash{position:absolute;inset:0;z-index:7;opacity:0;mix-blend-mode:screen;background:radial-gradient(ellipse at 55% 50%,rgba(200,170,255,.4),transparent 65%)}
+.t-stage.pulse .st-flash{animation:flashP .7s ease-out}
+@keyframes flashP{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+.t-stage .st-fx{position:absolute;inset:0;width:100%;height:100%;z-index:8}
+@media(prefers-reduced-motion:reduce){.t-stage .ent,.t-stage .flt,.t-stage .glow,.t-stage .st-rays,.t-stage .st-halo,.t-stage .st-fog,#title .t-moon{animation:none!important}}

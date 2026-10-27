@@ -202,7 +202,7 @@ export const MARKIVTON: CardDef[] = [
 /** TRIBUS SKALDRAK: clanes sin gobierno central de las montañas heladas; cada clan levanta su propio hielo para defenderse.
  *  · Glaciar: un muro de hielo sobre el Nexo (máx. 6). Absorbe el daño enemigo antes de que llegue al Nexo y se gasta como munición (Avalancha: daño a una enemiga; Alud: daño a todas).
  *    Mientras controles una unidad Glacial, el Glaciar crece +1 al cerrar cada ronda.
- *  · Skanuj: raza de piel azulada, hecha al frío. Inmune a Escarcha y Pegada, y se alimenta del Glaciar (+1 de poder con 3 o más de Glaciar).
+ *  · Skanuj: raza de piel azulada, hecha al frío. Inmune a Silenciar, Virus, Gas tóxico y Marchito, y se alimenta del Glaciar (+1 de poder con 3 o más de Glaciar).
  *  · Madura: las crías (Cachorro, Lobeznos, Aprendiz) evolucionan al cerrar la ronda si siguen en juego y no atacaron. */
 export const SKALDRAK: CardDef[] = [
   { ...U('tsk_cachorro', 'Cachorro de Lobo', 1, 1, 1, ['madura'], 'Madura: si no ataca, al cerrar la ronda se convierte en Lobo Gris.'), evolve: 'tsk_lobogris' },

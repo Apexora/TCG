@@ -55,7 +55,7 @@ function hitNexus(s: State, i: number, n: number) {
   if (a > 0) { s.ward![i] -= a; s.log.push(`❄ El Glaciar de J${i + 1} absorbe ${a} de daño`); }
   s.p[i].nexus -= n - a;
 }
-/** Skanuj: sangre fría. Inmune a la Escarcha (0 de poder) y a la Pegada. */
+/** Skanuj: piel de hielo. Inmune a Silenciar, Virus, Gas tóxico y Marchito. */
 const coldBlooded = (u: Unit) => u.kw.includes('skanuj');
 /** Madura (Skaldrak): la cría evoluciona. Conserva las mejoras permanentes y las palabras clave ganadas. */
 function mature(s: State, u: Unit) {
@@ -140,7 +140,7 @@ function endRound(s: State) {
   if (s.winner !== null) return;
   if ((s.gas ?? 0) > 0) {   // Gas tóxico (Disnjav): daña 1 a toda unidad sin Adaptado; los Adaptados se alimentan de él (+1 de poder)
     let hit = 0;
-    for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('adaptado')) { /* inmune */ } else { u.dmg += 1; hit++; } });
+    for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('adaptado') || coldBlooded(u)) { /* inmune */ } else { u.dmg += 1; hit++; } });
     s.gas = (s.gas ?? 0) - 1; s.log.push(`☣ El gas tóxico envenena a ${hit} unidad(es)${s.gas ? ` · quedan ${s.gas} ronda(s)` : ' · se disipa'}`);
   }
   // Virus (Boro): la unidad infectada recibe 1 de daño y el virus salta a otra unidad de su bando (si no hay otra, se queda)
@@ -148,7 +148,7 @@ function endRound(s: State) {
     const hosts = p.board.filter(u => u.kw.includes('virus'));
     for (const h of hosts) {
       h.dmg += 1;
-      const next = p.board.filter(x => x !== h && !x.kw.includes('virus'));
+      const next = p.board.filter(x => x !== h && !x.kw.includes('virus') && !coldBlooded(x));
       if (next.length) { const t = next[Math.floor(rand(s) * next.length)]; h.kw = h.kw.filter(k => k !== 'virus'); t.kw.push('virus'); }
     }
     if (hosts.length) s.log.push(`🦠 El virus daña a ${hosts.length} unidad(es) y salta`);
@@ -211,7 +211,7 @@ function necroDamage(s: State, t: Unit, n: number): number {
   if (n <= 0) return 0;
   const dealt = Math.min(n, Math.max(0, curHp(t)));
   t.dmg += n;
-  if (curHp(t) > 0 && !t.kw.includes('marchito')) t.kw.push('marchito');
+  if (curHp(t) > 0 && !t.kw.includes('marchito') && !coldBlooded(t)) t.kw.push('marchito');
   return dealt;
 }
 function dealDamage(s: State, t: Unit, n: number, src?: { u: Unit; owner: number }): number {
@@ -246,7 +246,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'dmgEnemy': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); } break; }
     case 'drain': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
     case 'dmgAll': foe.board.forEach(u => { if (e.necro) necroDamage(s, u, e.n); else dealDamage(s, u, e.n); }); break;
-    case 'frost': { const t = tgt ?? strongest(foe.board); if (t && !coldBlooded(t)) t.ta -= atkOf(t); break; }
+    case 'frost': { const t = tgt ?? strongest(foe.board); if (t) t.ta -= atkOf(t); break; }
     case 'sacDraw': { const v = weakest(me.board.filter(u => u !== src)); if (v) { kill(v); cleanup(s); draw(s, i, e.n); } break; }
     case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(foe.board); if (v && t) { const a = atkOf(v); kill(v); if (e.necro) necroDamage(s, t, a); else dealDamage(s, t, a); } break; }
     case 'debuffEnemies': foe.board.forEach(u => { u.atk = Math.max(0, u.atk - e.a); u.hp -= e.h; }); break;
@@ -262,18 +262,18 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       break;
     }
     case 'tregua': s.peace = true; s.log.push('☮ Tregua: esta ronda nadie puede atacar'); break;
-    case 'chicle': { const t = tgt ?? strongest(foe.board); if (t && !t.kw.includes('pegada') && !coldBlooded(t)) t.kw.push('pegada'); break; }
+    case 'chicle': { const t = tgt ?? strongest(foe.board); if (t && !t.kw.includes('pegada')) t.kw.push('pegada'); break; }
     case 'peaje': foe.mana = Math.max(0, foe.mana - e.n); break;
     case 'poda': { const t = weakest(foe.board); if (t) kill(t); break; }
     case 'gas': s.gas = Math.max(s.gas ?? 0, e.n); s.log.push(`☣ Gas tóxico: ${s.gas} ronda(s)`); break;
     case 'necroWeak': { const t = weakest(foe.board); if (t) necroDamage(s, t, e.n); break; }
     case 'necroStrong': { const t = strongest(foe.board); if (t) necroDamage(s, t, e.n); break; }
-    case 'wither': { const t = tgt ?? strongest(foe.board); if (t) { t.atk = 0; t.ta = Math.min(0, t.ta); s.log.push(`☠ {${t.card}} se marchita: su poder queda en 0`); } break; }
+    case 'wither': { const t = tgt ?? strongest(foe.board); if (t && !coldBlooded(t)) { t.atk = 0; t.ta = Math.min(0, t.ta); s.log.push(`☠ {${t.card}} se marchita: su poder queda en 0`); } break; }
     case 'discard': { const f = s.p[o(i)]; for (let k = 0; k < e.n && f.hand.length; k++) { const [c] = f.hand.splice(Math.floor(rand(s) * f.hand.length), 1); s.log.push(`☠ J${o(i) + 1} descarta {${c}}`); } break; }
     case 'mill': { const f = s.p[o(i)]; const n = Math.min(e.n, f.deck.length); if (n) { f.deck.splice(f.deck.length - n, n); s.log.push(`☠ Se eliminan ${n} carta(s) del mazo de J${o(i) + 1}`); } break; }
     case 'plant': { const f = s.p[o(i)]; for (let k = 0; k < e.n; k++) f.deck.splice(Math.floor(rand(s) * (f.deck.length + 1)), 0, e.card); s.log.push(`☠ Se cuela ${e.n > 1 ? e.n + ' veces ' : ''}{${e.card}} en el mazo de J${o(i) + 1}`); break; }
     case 'malware': for (let k = 0; k < e.n && foe.hand.length < 10; k++) foe.hand.push(MALWARE); s.log.push('🦠 Malware en la mano del rival'); break;
-    case 'virus': { const t = tgt ?? strongest(foe.board.filter(u => !u.kw.includes('virus'))); if (t && !t.kw.includes('virus')) t.kw.push('virus'); break; }
+    case 'virus': { const t = tgt ?? strongest(foe.board.filter(u => !u.kw.includes('virus') && !coldBlooded(u))); if (t && !t.kw.includes('virus') && !coldBlooded(t)) t.kw.push('virus'); break; }
     case 'arco': { // Cortocircuito en cadena: salta entre unidades enemigas distintas, con 1 menos de daño en cada salto
       const hit = new Set<Unit>(); let t: Unit | undefined = tgt ?? strongest(foe.board);
       for (let d = e.n; d > 0 && t; d--) {
@@ -335,8 +335,8 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       if (idx.length >= e.n) { for (const k of idx.slice(0, e.n).reverse()) me.hand.splice(k, 1); s.log.push(`🪙 J${i + 1} paga ${e.n} Doblón(es)`); e.fx.forEach(f => applyFx(s, i, f, src, tgt)); }
       break;
     }
-    case 'frostAll': foe.board.forEach(u => { if (!coldBlooded(u)) u.ta -= atkOf(u); }); break;
-    case 'silence': { const t = tgt ?? strongest(foe.board); if (t) t.kw = []; break; }
+    case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
+    case 'silence': { const t = tgt ?? strongest(foe.board); if (t && !coldBlooded(t)) t.kw = []; break; }
     case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;
     case 'destroyEnemy': { const t = tgt ?? strongest(foe.board); if (t) kill(t); break; }
   }
