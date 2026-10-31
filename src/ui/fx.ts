@@ -67,15 +67,14 @@ function flash(color: string) {
 }
 let titleEl: HTMLElement | null = null;
 /** Menú principal: elegir jugar contra la IA o en línea. Avisa a main.ts con eventos 'menu:ia' / 'menu:online'. */
-import { openRanking, pintarNE } from './ranking';
 import { mountMenuScene } from './menuscene';
 export function showMenu() {
   if (titleEl) return;
   const t = titleEl = document.createElement('div'); t.id = 'title';
   t.innerHTML = `<div class="t-bg"></div><div class="t-moon"></div><div class="t-stage"></div>
     <div class="t-in"><h1 class="t-logo">APEXORA<small>TCG</small></h1>
-    <div class="t-menu" role="menu"><button class="t-go on" data-m="ia" autofocus>Jugar con la IA</button><button class="t-go alt" data-m="online">Jugar Online</button><button class="t-go adv" data-m="adv">Aventura</button><button class="t-go rkb" data-m="rank">Ranking</button><button class="t-go dk" data-m="decks">Mis Mazos</button></div>
-    <div class="t-fac" role="radiogroup" aria-label="Elige tu mazo"></div><div class="ne-host"></div>
+    <div class="t-menu" role="menu"><button class="t-go on" data-m="ia" autofocus>Jugar con la IA</button><button class="t-go alt" data-m="online">Jugar Online</button><button class="t-go adv" data-m="adv">Aventura</button><button class="t-go dk" data-m="decks">Mis Mazos</button></div>
+    <div class="t-fac" role="radiogroup" aria-label="Elige tu mazo"></div>
     <p class="t-hint">Elige tu mazo y un modo · sonido activado</p></div>`;
   document.body.append(t);
   const scene = mountMenuScene(t.querySelector<HTMLElement>('.t-stage')!, () => titleEl === t);
@@ -147,8 +146,6 @@ export function showMenu() {
   facEl.addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]'); if (!b) return; setDeck(b.dataset.d!); sfx('select'); paint(); paintRiv(); });
   paint(); paintRiv();
   const onProg = () => { if (titleEl === t) { paint(); paintRiv(); } else document.removeEventListener('tcg:progreso', onProg); }; document.addEventListener('tcg:progreso', onProg);
-  const neHost = t.querySelector<HTMLElement>('.ne-host')!; pintarNE(neHost).catch(() => {});
-  const onNe = () => { if (titleEl === t) pintarNE(neHost).catch(() => {}); else document.removeEventListener('ne:cambio', onNe); }; document.addEventListener('ne:cambio', onNe);
   const items = Array.from(t.querySelectorAll<HTMLElement>('.t-menu .t-go'));
   const mark = (b: HTMLElement) => { if (b.classList.contains('on')) return; items.forEach(x => x.classList.toggle('on', x === b)); scene.pulse(); };
   items.forEach(b => { b.addEventListener('mouseenter', () => mark(b)); b.addEventListener('focus', () => mark(b)); });
@@ -157,7 +154,6 @@ export function showMenu() {
     e.preventDefault(); const i = items.findIndex(x => x === document.activeElement); items[(i + (k === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); sfx('select');
   });
   t.querySelectorAll<HTMLElement>('[data-m]').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.m === 'rank') { sfx('click'); openRanking(); return; }
     if (b.dataset.m === 'decks') { sfx('click'); openDeckBuilder(paint); return; }
     if (b.dataset.m === 'adv') { sfx('click'); document.dispatchEvent(new Event('menu:adv')); return; }
     if (b.dataset.m === 'ia') { sfx('click'); openRivalPicker(); return; }

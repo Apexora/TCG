@@ -15,7 +15,6 @@ export interface OnlineHandlers {
   onStatus(msg: string): void;       // "Esperando rival…", errores…
   onReady(): void;                    // ambos dentro: empieza la partida
   onChat?(m: { id: string; mine: boolean; text: string }): void;  // mensaje del chat entre jugadores
-  onFoeAvatar?(raw: string): void;   // foto de perfil del rival (valor tal cual lo guardó: id, emoji o URL; main.ts lo valida y resuelve)
   onSettled(): void;                  // mi jugada volvió confirmada (por si el motor la ignoró y no hay cambio que pintar)
 }
 
@@ -28,7 +27,6 @@ export class Online {
   private applied = 0; private sending = false; private sentAt = -1; private unsubs: (() => void)[] = [];
   private chatSeen = new Set<string>();
   private ready = false; private pulled = false; private waiters: (() => void)[] = [];
-  private foeAva = ''; private profileTried = false;
   constructor(private h: OnlineHandlers) {}
 
   static savedCode() { try { return localStorage.getItem(KEY); } catch { return null; } }
@@ -89,11 +87,9 @@ export class Online {
       const d = s.data(); if (!d) return;
       this.host = d.host; this.guest = d.guest ?? ''; this.seed = d.seed;
       this.decks = [parseWire(d.hostDeck, 'Luminarae'), parseWire(d.guestDeck, 'Umbra')];
-      const fa = this.seat === 0 ? d.guestAvatar : d.hostAvatar;   // el rival publica aquí su foto (si las reglas lo permiten)
-      if (typeof fa === 'string' && fa && fa !== this.foeAva) { this.foeAva = fa; this.h.onFoeAvatar?.(fa); }
       if (d.status === 'playing' && this.guest && !this.ready) {
         this.ready = true; this.g = initialState(this.seed, this.decks); this.applied = 0; this.pulled = false;
-        this.h.onReady(); this.h.onStatus(`Sala ${this.code}: ¡partida en marcha!`); void this.loadFoeProfile();
+        this.h.onReady(); this.h.onStatus(`Sala ${this.code}: ¡partida en marcha!`);
         // solo se escuchan las jugadas cuando ya hay dos jugadores (así las reglas dejan leer)
         this.unsubs.push(onSnapshot(query(collection(gref, 'chat'), orderBy('t')), cs => cs.docChanges().forEach(c => {
           if (c.type !== 'added' || this.chatSeen.has(c.doc.id)) return; this.chatSeen.add(c.doc.id);
@@ -155,20 +151,6 @@ export class Online {
     if (!this.ready) throw new Error('El chat se activa cuando entra el rival.');
     try { await addDoc(collection(db, 'tcgGames', this.code, 'chat'), { by: this.uid, text: text.slice(0, 140), t: Date.now() }); }
     catch (e) { throw new Error(netErr(e)); }
-  }
-  /** Publica mi foto de perfil en la sala para que el rival la vea. Si las reglas no admiten el campo, no pasa nada (queda la lectura del perfil). */
-  async publishAvatar(v: string) {
-    if (!this.ready || !v || v.length > 2000) return;
-    try { await updateDoc(doc(db, 'tcgGames', this.code), this.seat === 0 ? { hostAvatar: v } : { guestAvatar: v }); } catch { /* reglas sin ese campo */ }
-  }
-  /** Alternativa: leer la foto del perfil del Portal del rival (apexora_profiles/<uid>), si las reglas dejan leerla. */
-  private async loadFoeProfile() {
-    if (this.profileTried) return; this.profileTried = true;
-    const uid = this.seat === 0 ? this.guest : this.host; if (!uid) return;
-    try {
-      const s = await getDoc(doc(db, 'apexora_profiles', uid)), a = s.exists() ? String(s.data().avatar || '') : '';
-      if (a && !this.foeAva) { this.foeAva = a; this.h.onFoeAvatar?.(a); }
-    } catch { /* sin permiso: se queda el avatar de la facción */ }
   }
   get busy() { return this.sending; }
   get isReady() { return this.ready; }

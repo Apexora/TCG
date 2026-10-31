@@ -1,7 +1,7 @@
 import './style.css';
 import './fx.css';
 import './v3.css';
-import './apexora-theme.css';
+import './theme.css';
 import './nations.css';
 import './boss.css';
 import { hideMenu, initFx, showMenu } from './ui/fx';
@@ -21,9 +21,6 @@ import { isMuted, setBoss, setTension, sfx, sfxCard, startMusic, toggleMute } fr
 import { Online } from './net/online';
 import { applyMove, toView, view, type Seat } from './net/sync';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
-import { darPremio, darPremioIA, type AdvInfo } from './net/premio';
-import { aplicarNE } from './net/elo';
-import { ensureUser, obtenerAvatar, registrarActividad } from './net/firebase';
 import { openAdventure, closeAdventure, rivalImg } from './adventure/adventure';
 import { NATIONS, PLAYABLE, beaten, faction, markWon, nextRival, progress, edgeOf, type Rival } from './adventure/rivals';
 
@@ -118,8 +115,7 @@ function reader(id: string, side: number, u?: Unit) {
 function portrait(p: Player, i: number, label: string): string {
   const fl = p.nexus < prev[i] ? 'hit' : p.nexus > prev[i] ? 'heal' : '', d = p.nexus - prev[i];
   const gems = Array.from({ length: p.maxMana }, (_, k) => `<u class="${k < p.mana ? 'on' : ''}"></u>`).join('');
-  const av = i === 0 ? myAvatar : online && i === 1 ? foeAvatar : '';   // foto de perfil: la tuya o, online, la del rival
-  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${av && !isImg(av) ? esc(av) : fac(i) ? '☾' : '☀'}</span>${av ? (isImg(av) ? `<img src="${esc(av)}" alt="" onerror="this.remove()">` : '') : adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
+  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${fac(i) ? '☾' : '☀'}</span>${adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
     <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>${s.ward?.[i] ? `<div class="ward" title="Glaciar: absorbe ${s.ward[i]} de daño al Nexo">❄ ${s.ward[i]}</div>` : ''}
     <div class="pname">${label}</div><div class="pmana">${gems}<span class="sm">${[0, 1, 2].map(k => `<i class="${k < p.spell ? 'on' : ''}"></i>`).join('')}</span></div></div>`;
 }
@@ -342,7 +338,7 @@ function render() {
   prevHp = new Map(); lastBoard = [[], []];
   ghostCache = new Map();
   s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); ghostCache.set(u.uid, { id: u.card, u: { ...u, kw: [...u.kw] } }); }));
-  if (s.winner !== null && !ended) { ended = true;let avt: AdvInfo | undefined; if (adv && !adv.free && s.winner === 0) { const primera = !beaten(adv.nation, adv.rival.id); markWon(adv.nation, adv.rival.id); if (primera) avt = { nacion: NATIONS[adv.nation].name, rival: adv.rival.name, jefe: !!adv.rival.boss, conquista: progress(adv.nation) === NATIONS[adv.nation].rivals.length }; } if (s.winner !== -1) (online ? darPremio(online.code, s.winner === 0) : darPremioIA(s.winner === 0, avt)).catch(() => {}); if (online && s.winner !== -1 && online.isReady) { const w = s.winner === 0; aplicarNE(online.code, w, s.p[0].nexus, s.p[1].nexus).then(r => { if (r) toast(`${r.delta >= 0 ? '▲' : '▼'} ${r.delta >= 0 ? '+' : ''}${r.delta} NE · ahora ${r.despues} NE`); }).catch(() => {}); } if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
+  if (s.winner !== null && !ended) { ended = true; if (adv && !adv.free && s.winner === 0) markWon(adv.nation, adv.rival.id); if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
   logv.innerHTML = log; chatEl.hidden = !chatOpen;
 }
 // ---------- Acciones ----------
@@ -489,47 +485,16 @@ function menuApi() {
   };
 }
 function startOnline() {
-  adv = null; foeAvatar = '';   // las salas online no son duelos de la Aventura
+  adv = null;   // las salas online no son duelos de la Aventura
   if (online) return;
   online = new Online({
     onStatus: m => { setRoomTag(m); menuStatus(m); },
     onChat: m => { chat.push({ from: m.mine ? 'Tú' : 'Rival', text: m.text, side: m.mine ? 'me' : 'foe' }); if (!m.mine && !chatOpen) toast('💬 Rival: ' + m.text.slice(0, 60)); },
-    onReady: () => { ME = online!.seat; foeAvatar = ''; if (myAvatar) online!.publishAvatar(myAvatar); closeMenu(); hideMenu(); chat.sys('Chat online activo: puedes escribir a tu rival.'); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
+    onReady: () => { ME = online!.seat; closeMenu(); hideMenu(); chat.sys('Chat online activo: puedes escribir a tu rival.'); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
     onMoves: (g, fresh, replay) => { if (replay) { queue.length = 0; freshUi(view(g, ME)); } else { queue.push(...fresh); if (!pumping) pump(); } },
-    onFoeAvatar: raw => { resolveAva(raw).then(v => { v = safeFoeAva(v); if (v && v !== foeAvatar) { foeAvatar = v; if (!pumping && !busy) render(); } }).catch(() => {}); },
     onSettled: () => { if (!pumping && !queue.length && busy) { busy = false; render(); } },
   });
 }
-// Una sola cuenta: sin sesión del Portal se manda al Portal (en dev local no, para poder probar).
-// Foto de perfil del Portal: va en tu óvalo (emoji o imagen). Si no hay sesión o falla, queda el avatar de siempre.
-let myAvatar = '', foeAvatar = '';
-const isImg = (v: string) => /^(https?:|data:image\/|\/)/.test(v);
-// El Portal guarda en el perfil el id de la imagen (p. ej. "esc"); su archivo sale de avatares.json del Portal. También acepta emoji, URL o data:.
-const PORTAL = 'https://apexora.github.io/Portal/';
-/** La foto del rival viene de otro usuario: solo se acepta una imagen del Portal, una imagen incrustada o un emoji corto (nunca una URL cualquiera). */
-const safeFoeAva = (v: string) => (v.startsWith(PORTAL) || /^data:image\/(png|jpe?g|webp|gif);base64,[\w+/=]+$/.test(v) || (!/^[\w-]*$/.test(v) && !/[:/]/.test(v) && [...v].length <= 4) ? v : '');
-const resolveAva = async (v: string) => {
-  v = (v || '').trim();
-  if (/^(https?:|data:image\/)/.test(v)) return v;
-  try {
-    const l = await (await fetch(PORTAL + 'avatares/avatares.json', { cache: 'no-cache' })).json() as { id: string; archivo: string }[];
-    const a = l.find(x => x.id === v); if (a) return PORTAL + 'avatares/' + encodeURIComponent(a.archivo);
-  } catch { /* sin lista: se prueba como emoji */ }
-  return !/^[\w-]*$/.test(v) && [...v].length <= 4 ? v : '';   // solo un emoji corto se pinta como texto; un id sin imagen no
-};
-if (!import.meta.env.DEV) ensureUser().then(() => obtenerAvatar()).then(resolveAva).then(r => { if (r) { myAvatar = r; online?.publishAvatar(r); if (!pumping && !busy) render(); } }).catch(() => {});
-// Una sola vez por dispositivo: el progreso de Aventura que ya tenías antes de que existiera el feed se publica como un resumen por nación.
-const advResumen = async () => {
-  if (import.meta.env.DEV || localStorage.getItem('tcgAdvFeed')) return;
-  await ensureUser();
-  let ok = true;
-  for (const n of PLAYABLE) {
-    const v = NATIONS[n] ? progress(n) : 0, t = NATIONS[n]?.rivals.length ?? 0;
-    if (v > 0) ok = (await registrarActividad('tcg', 'aventura', { nacion: NATIONS[n].name, vencidos: v, total: t, conquista: v === t })) && ok;
-  }
-  if (ok) localStorage.setItem('tcgAdvFeed', '1');
-};
-advResumen().catch(() => {});
 const savedRoom = Online.savedCode();
 if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
 
