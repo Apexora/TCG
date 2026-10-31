@@ -124,6 +124,7 @@ export function openAdventure(h: AdvHandlers, focus?: string) {
     panel.hidden = false; panel.dataset.n = id; panel.className = 'adv-panel ' + id + (soon ? ' soon' : '');
     panel.innerHTML = `<button class="adv-x" data-x="close" aria-label="Cerrar">✕</button><p class="adv-k">${soon ? '🔒 PRÓXIMAMENTE' : 'NACIÓN'}</p><h3>${esc(n.name)}</h3>
       <div class="adv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${n.rivals.length}" aria-valuenow="${pr}"><i style="width:${100 * pr / n.rivals.length}%"></i></div>
+      <ol class="adv-ms" aria-hidden="true">${n.rivals.map((r, i) => `<li class="${!soon && beaten(id, r.id) ? 'done' : nx?.id === r.id ? 'cur' : ''} ${r.boss ? 'boss' : ''}"><i>${r.boss ? '★' : i + 1}</i></li>`).join('')}</ol>
       <p class="adv-prog">${soon ? 'Esta nación aún no está disponible' : pr === n.rivals.length ? '★ Nación conquistada' : `${pr} de ${n.rivals.length} rivales vencidos`}</p>
       <ol class="adv-list">${n.rivals.map((r, i) => {
         const done = !soon && beaten(id, r.id), open = !soon && unlocked(id, i), f = faction(r);

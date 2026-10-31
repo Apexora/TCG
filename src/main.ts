@@ -5,6 +5,7 @@ import './theme.css';
 import './nations.css';
 import './boss.css';
 import './polish.css';
+import './premium.css';
 /* Sin arte (o con arte roto) no se muestra el icono de imagen rota: se oculta la imagen y queda el fondo/glifo */
 document.addEventListener('error', e => { const t = e.target; if (t instanceof HTMLImageElement) t.style.visibility = 'hidden'; }, true);
 import { hideMenu, initFx, showMenu } from './ui/fx';
@@ -99,7 +100,7 @@ const artHTML = (id: string) => { const f = id.slice(0, 3);
 function card(id: string, attr = '', cls = '', u?: Unit, extra = ''): string {
   const c = CARDS[id], f = id.slice(0, 3), kws = u ? u.kw : c.kw, dmg = u && u.dmg > 0 ? 'dmg' : '';
   const kn = (c.type === 'spell' ? [SPN[c.speed ?? 'fast']] : []).concat(kws.map(k => KWN[k])).join(' · ');
-  return `<div class="card ${c.type} ${f} ${NAT.has(f) ? 'nat' : ''} ${cls}" ${attr}>${artHTML(id)}
+  return `<div class="card ${c.type} ${f} ${NAT.has(f) ? 'nat' : ''} ${cls}" ${attr}>${artHTML(id)}<i class="band"></i><i class="foil"></i>
     <div class="side"><i class="cost">${c.cost}</i>${kws.map(k => `<i class="ki">${KWI[k]}</i>`).join('')}</div>
     <div class="panel"><div class="nm">${nameOf(id)}</div><div class="orn"></div><p class="tx ${c.text.length > 150 ? 'tl3' : c.text.length > 105 ? 'tl2' : c.text.length > 70 ? 'tl1' : ''}"><em>${kn}</em>${c.text}</p></div>
     ${c.type === 'unit' ? `<b class="atk ${u && u.ta ? 'tmp' : ''}">${u ? atkOf(u) : c.atk}<s>⚔</s></b><b class="hp ${dmg}">${u ? curHp(u) : c.hp}<s>♥</s></b>` : ''}${extra}</div>`;
