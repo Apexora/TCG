@@ -555,3 +555,6 @@ function showAdventure(focus?: string) { openAdventure({ onFight: startDuel, onC
 document.addEventListener('menu:adv', () => showAdventure());
 render(); loop();
 initFx();
+
+/* Red de seguridad: si algún contenedor se desplaza por el foco, se devuelve a 0 */
+addEventListener('scroll', e => { const t = e.target; if (t instanceof HTMLElement && t.scrollLeft && ['title', 'adv'].includes(t.id)) t.scrollLeft = 0; }, true);

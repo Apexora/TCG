@@ -282,3 +282,8 @@ html[data-mood] .onl input::placeholder{color:#d9b76a88;opacity:1}
 html[data-mood] .onl input{color:var(--ap-gold-hi)}
 html[data-mood] .onl .btn{text-shadow:none;font-size:12px;letter-spacing:.14em}
 html[data-mood] .onl .avs button{border-color:#d9b76a44;background:#0a1318}
+
+/* ---------- 16 · Pantalla "corrida" al abrir paneles ---------- */
+/* El foco dentro de un contenedor overflow:hidden lo desplaza (scrollLeft) y nunca vuelve; `clip` lo impide. */
+html[data-mood] #title,html[data-mood] #adv,html[data-mood] .dk,html[data-mood] .onl{overflow:hidden;overflow:clip}
+html[data-mood],html[data-mood] body{overflow-x:hidden;overflow-x:clip}
