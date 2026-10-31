@@ -269,3 +269,16 @@ html[data-mood] .dk .dk-t.lum{border-color:#e9cf86cc}html[data-mood] .dk .dk-t.u
 html[data-mood] .card.lum .tx,html[data-mood] .card.lum .tx em{color:#4a3208;opacity:1}
 html[data-mood] .card.umb .tx,html[data-mood] .card.umb .tx em{color:#eadbdb;opacity:1}
 :root[data-mood="tcg"] .btn:not(.atk-btn){background:linear-gradient(180deg,#f8ecc0,#e2cb86 55%,#bd9a4a);color:#2a1d07}
+
+/* ---------- 15 · Ajustes tras capturas con arte real ---------- */
+html[data-mood]{scrollbar-color:#d9b76a77 #070a0d}
+html[data-mood]::-webkit-scrollbar,html[data-mood] *::-webkit-scrollbar{width:10px;height:10px;background:#070a0d}
+html[data-mood]::-webkit-scrollbar-thumb,html[data-mood] *::-webkit-scrollbar-thumb{background:#d9b76a66;border:2px solid #070a0d;border-radius:6px}
+:root[data-mood="tcg"] header{background:linear-gradient(180deg,#0b1419f7,#0a1115ea);border-bottom-color:transparent}
+html[data-mood] .onl>div{color:var(--ink)}
+html[data-mood] .onl>div p,html[data-mood] .onl>div span,html[data-mood] .onl>div small,html[data-mood] .onl>div li,html[data-mood] .onl>div .st,html[data-mood] .onl>div .me,html[data-mood] .onl>div .rkl{color:#d8cfae}
+html[data-mood] .onl>div .nick,html[data-mood] .onl>div .pts{color:var(--ap-gold-hi)}
+html[data-mood] .onl input::placeholder{color:#d9b76a88;opacity:1}
+html[data-mood] .onl input{color:var(--ap-gold-hi)}
+html[data-mood] .onl .btn{text-shadow:none;font-size:12px;letter-spacing:.14em}
+html[data-mood] .onl .avs button{border-color:#d9b76a44;background:#0a1318}
