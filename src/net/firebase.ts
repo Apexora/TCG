@@ -20,6 +20,7 @@ export const db = getFirestore(app);
 /** Sesión anónima (identifica al jugador solo dentro de una sala). */
 export async function ensureUser() {
   if (!isConfigured) throw new Error(netErr(null));
+  await auth.authStateReady();   // espera a que se restaure la sesión guardada (si no, se crearía una anónima nueva)
   if (!auth.currentUser) await signInAnonymously(auth);
   return auth.currentUser!;
 }

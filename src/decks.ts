@@ -37,7 +37,8 @@ try {
   const r = JSON.parse(localStorage.getItem(KD) || '[]');
   if (Array.isArray(r)) list = r.filter(d => d && typeof d.id === 'string' && typeof d.name === 'string').map(d => ({ ...d, cards: padOld(d.cards) })).filter(d => !deckError(d.cards));
 } catch { /* vacío */ }
-const persist = () => { try { localStorage.setItem(KD, JSON.stringify(list)); } catch { /* sin espacio */ } };
+const avisar = () => { if (typeof document !== 'undefined') document.dispatchEvent(new Event('tcg:guardar')); };
+const persist = () => { try { localStorage.setItem(KD, JSON.stringify(list)); } catch { /* sin espacio */ } avisar(); };
 
 export const customDecks = (): CustomDeck[] => list.map(d => ({ ...d, cards: [...d.cards] }));
 export const newDeckId = () => 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -63,7 +64,7 @@ let sel = 'Luminarae';
 try { sel = localStorage.getItem(KS) || sel; } catch { /* ignorar */ }
 /** Clave del mazo elegido: 'Luminarae', 'Umbra' o el id de un mazo personalizado (si ya no existe, Luminarae). */
 export const getDeck = (): string => (has(DECKS, sel) || list.some(d => d.id === sel) || natUnlocked(natId(sel)) ? sel : 'Luminarae');
-export function setDeck(k: string) { sel = k; try { localStorage.setItem(KS, k); } catch { /* ignorar */ } }
+export function setDeck(k: string) { sel = k; try { localStorage.setItem(KS, k); } catch { /* ignorar */ } avisar(); }
 
 export function deckCards(key: string): string[] {
   if (has(DECKS, key)) return DECKS[key];

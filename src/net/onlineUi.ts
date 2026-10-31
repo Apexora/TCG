@@ -35,6 +35,10 @@ const CSS = `
 .onl .rkl li{display:grid;grid-template-columns:34px 1fr auto 70px;gap:8px;padding:6px 8px;font:600 14px Cinzel,serif;color:#e3d6ff;border-bottom:1px solid #c7a2ff1f}
 .onl .rkl li.mine{background:#7a54ff33;color:#fff}.onl .rkl b{color:#bffcef}.onl .rkl small{color:#a99cc8;text-align:right}
 .onl input.nick{font:600 16px Cinzel,serif;letter-spacing:.06em;text-transform:none;padding:6px}
+.onl .avs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.onl .avs button{width:38px;height:38px;font-size:20px;border-radius:50%;border:1px solid #c7a2ff55;background:#0c0820aa;color:#fff}
+.onl .avs button.on{border-color:#2cf0c4;box-shadow:0 0 12px #2cf0c488}
+.onl .rkl .av{margin-right:4px}
 @media(prefers-reduced-motion:reduce){.onl,.onl>div,.onl>div::before,.onl>div::after,.onl .mt,.onl .st{animation:none!important}}
 `;
 let tag: HTMLElement | null = null, menu: HTMLElement | null = null;

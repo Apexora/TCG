@@ -68,13 +68,14 @@ function flash(color: string) {
 let titleEl: HTMLElement | null = null;
 /** Menú principal: elegir jugar contra la IA o en línea. Avisa a main.ts con eventos 'menu:ia' / 'menu:online'. */
 import { openRanking } from './ranking';
+import { openPerfil } from './perfil';
 import { mountMenuScene } from './menuscene';
 export function showMenu() {
   if (titleEl) return;
   const t = titleEl = document.createElement('div'); t.id = 'title';
   t.innerHTML = `<div class="t-bg"></div><div class="t-moon"></div><div class="t-stage"></div>
     <div class="t-in"><h1 class="t-logo">APEXORA<small>TCG</small></h1>
-    <div class="t-menu" role="menu"><button class="t-go on" data-m="ia" autofocus>Jugar con la IA</button><button class="t-go alt" data-m="online">Jugar Online</button><button class="t-go adv" data-m="adv">Aventura</button><button class="t-go rkb" data-m="rank">Ranking</button><button class="t-go dk" data-m="decks">Mis Mazos</button></div>
+    <div class="t-menu" role="menu"><button class="t-go on" data-m="ia" autofocus>Jugar con la IA</button><button class="t-go alt" data-m="online">Jugar Online</button><button class="t-go adv" data-m="adv">Aventura</button><button class="t-go rkb" data-m="rank">Ranking</button><button class="t-go dk" data-m="decks">Mis Mazos</button><button class="t-go" data-m="perfil">Perfil</button></div>
     <div class="t-fac" role="radiogroup" aria-label="Elige tu mazo"></div>
     <p class="t-hint">Elige tu mazo y un modo · sonido activado</p></div>`;
   document.body.append(t);
@@ -155,6 +156,7 @@ export function showMenu() {
     e.preventDefault(); const i = items.findIndex(x => x === document.activeElement); items[(i + (k === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); sfx('select');
   });
   t.querySelectorAll<HTMLElement>('[data-m]').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.m === 'perfil') { sfx('click'); openPerfil(); return; }
     if (b.dataset.m === 'rank') { sfx('click'); openRanking(); return; }
     if (b.dataset.m === 'decks') { sfx('click'); openDeckBuilder(paint); return; }
     if (b.dataset.m === 'adv') { sfx('click'); document.dispatchEvent(new Event('menu:adv')); return; }

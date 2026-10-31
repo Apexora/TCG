@@ -23,6 +23,7 @@ import { applyMove, toView, view, type Seat } from './net/sync';
 import { registrarResultado } from './net/liga';
 import { buscarSalas, latido, publicar, retirar } from './net/matchmaking';
 import { ensureUser } from './net/firebase';
+import { avatar, iniciarCuenta } from './net/cuenta';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
 import { openAdventure, closeAdventure, rivalImg } from './adventure/adventure';
 import { NATIONS, PLAYABLE, beaten, faction, markWon, nextRival, progress, edgeOf, type Rival } from './adventure/rivals';
@@ -118,7 +119,7 @@ function reader(id: string, side: number, u?: Unit) {
 function portrait(p: Player, i: number, label: string): string {
   const fl = p.nexus < prev[i] ? 'hit' : p.nexus > prev[i] ? 'heal' : '', d = p.nexus - prev[i];
   const gems = Array.from({ length: p.maxMana }, (_, k) => `<u class="${k < p.mana ? 'on' : ''}"></u>`).join('');
-  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${fac(i) ? '☾' : '☀'}</span>${adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
+  return `<div class="pt ${i ? 'foe' : 'me'}"><div class="ava"><span>${i === 0 && avatar() ? esc(avatar()) : fac(i) ? '☾' : '☀'}</span>${i === 0 && avatar() ? '' : adv && i === 1 ? `<img src="${rivalImg(adv.rival.id)}" data-f="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="if(this.dataset.f){this.src=this.dataset.f;delete this.dataset.f}else this.remove()">` : `<img src="${import.meta.env.BASE_URL}img/avatar_${fac(i) ? 'umb' : 'lum'}.webp" onerror="this.remove()">`}</div>
     <div class="orb ${fl}">${Math.max(0, p.nexus)}${d ? `<span class="fx">${d > 0 ? '+' : ''}${d}</span>` : ''}</div>${s.ward?.[i] ? `<div class="ward" title="Glaciar: absorbe ${s.ward[i]} de daño al Nexo">❄ ${s.ward[i]}</div>` : ''}
     <div class="pname">${label}</div><div class="pmana">${gems}<span class="sm">${[0, 1, 2].map(k => `<i class="${k < p.spell ? 'on' : ''}"></i>`).join('')}</span></div></div>`;
 }
@@ -522,6 +523,7 @@ function startOnline() {
     onSettled: () => { if (!pumping && !queue.length && busy) { busy = false; render(); } },
   });
 }
+iniciarCuenta().catch(() => {});
 const savedRoom = Online.savedCode();
 if (savedRoom) { startOnline(); online!.resume(savedRoom).catch(() => { online = null; Online.clearSaved(); setRoomTag(''); }); }
 

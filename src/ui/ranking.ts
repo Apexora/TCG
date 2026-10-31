@@ -15,6 +15,6 @@ export async function openRanking() {
   try {
     const [yo, top] = await Promise.all([misPuntos(), rankingTop(50)]);
     m.querySelector('.me')!.textContent = `Tus puntos: ${yo.pt} · ${yo.wins} V / ${yo.losses} D`;
-    ol.innerHTML = top.length ? top.map((r, i) => `<li class="${r.mine ? 'mine' : ''}"><span>${i + 1}</span><span>${esc(r.name)}</span><b>${r.pt}</b><small>${r.wins}V ${r.losses}D</small></li>`).join('') : '<li><span></span><span>Aún no hay partidas. ¡Sé el primero!</span></li>';
+    ol.innerHTML = top.length ? top.map((r, i) => `<li class="${r.mine ? 'mine' : ''}"><span>${i + 1}</span><span>${r.avatar ? `<span class="av">${esc(r.avatar)}</span>` : ''}${esc(r.name)}</span><b>${r.pt}</b><small>${r.wins}V ${r.losses}D</small></li>`).join('') : '<li><span></span><span>Aún no hay partidas. ¡Sé el primero!</span></li>';
   } catch (e) { ol.innerHTML = `<li><span></span><span>${esc(netErr(e))}</span></li>`; }
 }

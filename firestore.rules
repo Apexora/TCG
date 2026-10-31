@@ -16,6 +16,10 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.host == request.auth.uid;
       allow update, delete: if request.auth != null && resource.data.host == request.auth.uid;
     }
+    // Perfil y progreso en la nube: cada jugador solo accede al suyo
+    match /tcgProfiles/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
     // Ranking: cada jugador escribe solo su ficha; el cambio de puntos por partida está acotado
     match /tcgPlayers/{uid} {
       allow read: if request.auth != null;

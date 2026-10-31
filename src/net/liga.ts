@@ -1,6 +1,7 @@
 // Ranking propio de Cartas Alfa. Puntos (PT): solo cambian al terminar una partida ONLINE. Datos en tcgPlayers/{uid}.
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, runTransaction } from 'firebase/firestore';
 import { auth, db, ensureUser } from './firebase';
+import { avatar } from './cuenta';
 
 export const PT_GANA = 10, PT_PIERDE = 5, PT_MARGEN_MAX = 20;
 /** Victoria = +10 + diferencia de vidas; derrota = -(5 + diferencia de vidas). Máx. margen 20. */
@@ -23,7 +24,7 @@ export async function registrarResultado(room: string, gane: boolean, vidasMias:
     const d = (await tx.get(ref)).data() ?? {};
     if (d.lastRoom === room) return null;
     const antes = Math.max(0, Math.floor(Number(d.pt) || 0)), despues = Math.max(0, antes + delta);
-    tx.set(ref, { name: nick(), pt: despues, wins: (d.wins | 0) + (gane ? 1 : 0), losses: (d.losses | 0) + (gane ? 0 : 1), lastRoom: room, updatedAt: Date.now() });
+    tx.set(ref, { name: nick(), avatar: avatar(), pt: despues, wins: (d.wins | 0) + (gane ? 1 : 0), losses: (d.losses | 0) + (gane ? 0 : 1), lastRoom: room, updatedAt: Date.now() });
     return { delta: despues - antes, despues };
   });
 }
@@ -34,5 +35,5 @@ export async function misPuntos() {
 }
 export async function rankingTop(n = 50) {
   const s = await getDocs(query(collection(db, 'tcgPlayers'), orderBy('pt', 'desc'), limit(n)));
-  return s.docs.map(x => ({ uid: x.id, name: String(x.data().name || 'Jugador'), pt: x.data().pt | 0, wins: x.data().wins | 0, losses: x.data().losses | 0, mine: x.id === auth.currentUser?.uid }));
+  return s.docs.map(x => ({ uid: x.id, name: String(x.data().name || 'Jugador'), avatar: String(x.data().avatar || ''), pt: x.data().pt | 0, wins: x.data().wins | 0, losses: x.data().losses | 0, mine: x.id === auth.currentUser?.uid }));
 }
