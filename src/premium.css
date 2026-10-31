@@ -596,3 +596,35 @@ html[data-mood] .dk .dk-t .n{left:46px;bottom:auto;top:calc(62% + 9px);font-size
 html[data-mood] .dk .dk-t .s{left:46px}
 html[data-mood] .dk .dk-t.umb,html[data-mood] .dk .dk-t.umb:hover{border-color:#b894ffaa}
 html[data-mood] .dk .dk-t.lum{border-color:#e2bd6baa}
+html[data-mood] .card.mini .atk,html[data-mood] .card.mini .hp{height:calc(var(--w)*.24);font-size:calc(var(--w)*.17);min-width:calc(var(--w)*.4)}
+html[data-mood] .card.mini .cost{font-size:calc(var(--w)*.17)}
+html[data-mood] .card.mini .band{bottom:calc(var(--w)*.27)}
+
+/* ==========================================================================
+   PANELES: Perfil / Ranking / Online
+   ========================================================================== */
+html[data-mood] .onl>div{
+  font-family:var(--px-ui);color:var(--px-text);border-radius:22px;
+  background:linear-gradient(180deg,#111a29f7,#080d15fa);border:1px solid var(--px-line2);
+  box-shadow:0 40px 90px #000d,inset 0 1px 0 #ffffff14,inset 0 0 0 1px #00000088;
+}
+html[data-mood] .onl>div::before,html[data-mood] .onl>div::after{width:10px;height:10px;box-shadow:0 0 0 2px #e8c675,0 0 14px #e8c67588;background:linear-gradient(135deg,#fff0c4,#e8c675)}
+html[data-mood] .onl h2{font:700 clamp(26px,4vw,34px)/1 var(--px-disp);letter-spacing:.24em;text-transform:uppercase;
+  background:linear-gradient(180deg,#fff,#d6f4ff 50%,#7fc4dd);-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-mood] .onl p,html[data-mood] .onl .st,html[data-mood] .onl small,html[data-mood] .onl li,html[data-mood] .onl span{font-family:var(--px-ui);letter-spacing:.04em}
+html[data-mood] .onl input{
+  border-radius:12px;border:1px solid var(--px-line2);background:#0a111bcc;color:var(--px-text);font:700 14px var(--px-ui);letter-spacing:.08em;text-transform:none;padding:12px 14px
+}
+html[data-mood] .onl input:focus{outline:0;border-color:#58d6ff;box-shadow:0 0 0 3px #58d6ff22}
+html[data-mood] .onl input::placeholder{color:var(--px-dim)}
+html[data-mood] .onl button:not([data-a]){
+  clip-path:none;border-radius:12px;font:800 11px/1 var(--px-ui);letter-spacing:.2em;text-transform:uppercase;padding:14px 20px;cursor:pointer;
+  color:var(--px-text);background:linear-gradient(180deg,#ffffff12,#ffffff05);border:1px solid var(--px-line2);box-shadow:inset 0 1px 0 #ffffff12;transition:.25s var(--px-ease)
+}
+html[data-mood] .onl button:not([data-a]):hover{transform:translateY(-1px);border-color:#e8c67577;color:var(--px-gold-hi);background:linear-gradient(180deg,#e8c67526,#e8c6750a)}
+html[data-mood] .onl button.go,html[data-mood] .onl button.pri,html[data-mood] .onl button.btn{
+  color:#1b1305;background:linear-gradient(180deg,#fff0c4,#e8c675 55%,#b48a32);border:0;box-shadow:0 0 0 1px #000a,0 0 0 2px #ffe9a844,0 12px 26px #000a,inset 0 1px 0 #ffffffaa
+}
+html[data-mood] .onl>div{max-height:96vh;overflow:auto}
+html[data-mood] .onl [data-a]{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:19px;padding:0;background:#0a111bcc;border:1px solid var(--px-line2);cursor:pointer;transition:.2s}
+html[data-mood] .onl [data-a].on{border-color:#e8c675;box-shadow:0 0 18px #e8c67566;background:linear-gradient(180deg,#e8c67533,#e8c6750d)}
