@@ -36,7 +36,7 @@ export function openAdventure(h: AdvHandlers, focus?: string) {
     <header class="adv-top"><button class="adv-back" data-x="back">← MENÚ</button>
       <div class="adv-ttl"><p>RECORRE EL MUNDO</p><h2>AVENTURA</h2></div><div class="adv-zoom"><button data-x="in" aria-label="Acercar">+</button><button data-x="out" aria-label="Alejar">−</button><button data-x="home" aria-label="Ver todo">⌖</button></div></header>
     <div class="adv-stage"><svg class="adv-map" viewBox="0 0 ${MAP.w} ${MAP.h}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa del mundo">
-      <defs><radialGradient id="adv-sea" cx="50%" cy="48%" r="75%"><stop offset="0" stop-color="#1d1433"/><stop offset=".6" stop-color="#100b1f"/><stop offset="1" stop-color="#07060b"/></radialGradient>
+      <defs><radialGradient id="adv-sea" cx="50%" cy="48%" r="75%"><stop offset="0" stop-color="#16404c"/><stop offset=".6" stop-color="#0a1c24"/><stop offset="1" stop-color="#05090c"/></radialGradient>
         <linearGradient id="adv-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset="1" stop-color="#d9ae52"/></linearGradient>
         <linearGradient id="adv-vio" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7a2ff"/><stop offset="1" stop-color="#6d3fd0"/></linearGradient></defs>
       <rect class="sea" x="-4000" y="-4000" width="${MAP.w + 8000}" height="${MAP.h + 8000}" fill="url(#adv-sea)"/>

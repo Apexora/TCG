@@ -4,6 +4,9 @@ import './v3.css';
 import './theme.css';
 import './nations.css';
 import './boss.css';
+import './polish.css';
+/* Sin arte (o con arte roto) no se muestra el icono de imagen rota: se oculta la imagen y queda el fondo/glifo */
+document.addEventListener('error', e => { const t = e.target; if (t instanceof HTMLImageElement) t.style.visibility = 'hidden'; }, true);
 import { hideMenu, initFx, showMenu } from './ui/fx';
 import { deckCards, deckFaction, deckLabel, getDeck, otherDeck, wireDeck } from './decks';
 import { CARDS, DECKS } from './data/cards';
@@ -309,7 +312,7 @@ function render() {
     return `<div class="slotc" data-a="hand" data-i="${i}" data-k="${k}" data-id="${id}" style="--rot:${(r * 3.2).toFixed(1)}deg;--y:${(r * r * 2.6).toFixed(1)}px" aria-label="${esc(nameOf(id))}, coste ${CARDS[id].cost}">${card(id, '', `${myTurn && canPlay(s, 0, i) ? 'ok' : 'no'} ${tgt?.hand === i ? 'sel' : ''}`)}</div>`; }).join('');
   const mullHTML = s.phase === 'mulligan' && s.mull[0] ? `<div class="mull"><h2>Mulligan</h2><p>Esperando al rival…</p></div>` : s.phase === 'mulligan' ? `<div class="mull"><h2>Mulligan</h2><p>Toca las cartas que quieras reemplazar (0 a 4)</p><div class="mrow">${me.hand.map((id, i) => card(id, `data-a="mul" data-i="${i}"`, mulSel.has(i) ? 'sel swap' : '')).join('')}</div><button class="btn" data-a="mulgo">${mulSel.size ? `Reemplazar ${mulSel.size}` : 'Conservar mano'}</button></div>` : '';
   motionSnapshot(app, gameId);
-  app.innerHTML = `<header><div class="brand"><span class="brand-mark">✦</span><h1>Cartas <small>ALFA</small></h1></div><div class="header-state"><span class="rd">Ronda ${s.round}/40</span><span class="phase-chip">${phaseName}</span><span class="tok">${s.tok[0] ? '⚑ Tienes la ficha de ataque' : s.tok[1] ? '⚑ Ficha de ataque: rival' : '⚑ Ficha gastada'}</span>${s.gas ? `<span class="tok" title="Al cerrar la ronda daña 1 a cada unidad sin Adaptado">☣ Gas tóxico: ${s.gas} ronda(s)</span>` : ''}${s.peace ? '<span class="tok" title="Nadie puede atacar hasta que acabe la ronda">☮ Tregua</span>' : ''}</div>
+  app.innerHTML = `<header><div class="brand"><span class="brand-mark">✦</span><h1>Apexora <small>TCG</small></h1></div><div class="header-state"><span class="rd">Ronda ${s.round}/40</span><span class="phase-chip">${phaseName}</span><span class="tok">${s.tok[0] ? '⚑ Tienes la ficha de ataque' : s.tok[1] ? '⚑ Ficha de ataque: rival' : '⚑ Ficha gastada'}</span>${s.gas ? `<span class="tok" title="Al cerrar la ronda daña 1 a cada unidad sin Adaptado">☣ Gas tóxico: ${s.gas} ronda(s)</span>` : ''}${s.peace ? '<span class="tok" title="Nadie puede atacar hasta que acabe la ronda">☮ Tregua</span>' : ''}</div>
     <nav class="toolbar"><button class="ghost" data-a="chat">${chatOpen ? '✕ Cerrar' : '☰ Chat / registro'}</button><button class="ghost icon-btn" data-a="mute">${isMuted() ? '🔇' : '🔊'}</button><button class="ghost" data-a="menu">⌂ Menú</button><button class="ghost" data-a="online">🌐 Online</button><button class="ghost" data-a="new">↻ Nueva partida</button></nav></header>` +
     `<main class="stage ${tgt ? 'targeting' : ''}${dueling ? ' dueling' : ''}" data-dnex="${duel && duel.blk === null ? duel.def : ''}">${duel ? `<div class="duelcap">${duel.cap}</div>` : ''}
       <div class="foehand">${Array.from({ length: foe.hand.length }, () => '<i></i>').join('')}</div>
