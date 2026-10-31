@@ -1,3 +1,4 @@
+import { nick, setNick } from './liga';
 // Menú "Jugar online" y etiqueta de sala. Vive fuera de render() para no perderse al repintar.
 const CSS = `
 .onl{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse 70% 80% at 50% 45%,#2a1a5acc 0,#0d0820e6 55%,#04020aef 100%);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);animation:onlIn .35s ease-out both}
@@ -29,9 +30,15 @@ const CSS = `
 .onl .st:not(:empty){animation:onlSt 1.4s ease-in-out infinite alternate}
 @keyframes onlSt{from{opacity:.55}}
 .roomtag{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:8000;font:600 12px Cinzel,serif;letter-spacing:.2em;padding:5px 16px;border-radius:99px;background:linear-gradient(160deg,#1b1238ee,#0a0716ee);border:1px solid #c7a2ff55;box-shadow:0 0 16px #7a54ff44;color:#e3d6ff;pointer-events:none}
+.onl .me{font:600 13px Cinzel,serif;letter-spacing:.1em;color:#f2d58a}
+.onl .rkl{list-style:none;margin:0;padding:0;max-height:48vh;overflow:auto;text-align:left}
+.onl .rkl li{display:grid;grid-template-columns:34px 1fr auto 70px;gap:8px;padding:6px 8px;font:600 14px Cinzel,serif;color:#e3d6ff;border-bottom:1px solid #c7a2ff1f}
+.onl .rkl li.mine{background:#7a54ff33;color:#fff}.onl .rkl b{color:#bffcef}.onl .rkl small{color:#a99cc8;text-align:right}
+.onl input.nick{font:600 16px Cinzel,serif;letter-spacing:.06em;text-transform:none;padding:6px}
 @media(prefers-reduced-motion:reduce){.onl,.onl>div,.onl>div::before,.onl>div::after,.onl .mt,.onl .st{animation:none!important}}
 `;
 let tag: HTMLElement | null = null, menu: HTMLElement | null = null;
+export function ensureStyle() { style(); }
 function style() { if (!document.getElementById('onl-css')) { const s = document.createElement('style'); s.id = 'onl-css'; s.textContent = CSS; document.head.append(s); } }
 
 export function setRoomTag(text: string) {
@@ -41,19 +48,22 @@ export function setRoomTag(text: string) {
 export function closeMenu() { menu?.remove(); menu = null; }
 export function menuStatus(t: string) { const e = menu?.querySelector('.st'); if (e) e.textContent = t; }
 
-export function openOnlineMenu(a: { create(): Promise<void>; join(code: string): Promise<void>; leave?: () => void; inRoom: boolean }) {
+export function openOnlineMenu(a: { create(): Promise<void>; join(code: string): Promise<void>; search(): Promise<void>; cancel(): void; leave?: () => void; inRoom: boolean; searching: boolean }) {
   style(); closeMenu();
   menu = document.createElement('div'); menu.className = 'onl';
   menu.innerHTML = `<i class=\"mt\" style=\"--x:8%;--s:3px;--c:#c7a2ff;--d:11s;--w:-1s;--dx:30px\"></i><i class=\"mt\" style=\"--x:22%;--s:2px;--c:#2cf0c4;--d:14s;--w:-6s;--dx:-40px\"></i><i class=\"mt\" style=\"--x:37%;--s:4px;--c:#f2d58a;--d:12s;--w:-3s;--dx:25px\"></i><i class=\"mt\" style=\"--x:52%;--s:2px;--c:#c7a2ff;--d:15s;--w:-9s;--dx:-20px\"></i><i class=\"mt\" style=\"--x:66%;--s:3px;--c:#2cf0c4;--d:10s;--w:-4s;--dx:40px\"></i><i class=\"mt\" style=\"--x:80%;--s:4px;--c:#f2d58a;--d:13s;--w:-7s;--dx:-30px\"></i><i class=\"mt\" style=\"--x:92%;--s:2px;--c:#c7a2ff;--d:12s;--w:-2s;--dx:20px\"></i><div><h2>Jugar online</h2>
-    ${a.inRoom ? '<p>Ya estás en una sala.</p><button class="btn" data-x="leave">Salir de la sala</button>'
-      : '<button class="btn" data-x="create">Crear sala</button><p style="margin:0;opacity:.7">o únete con un código</p><input data-x="code" maxlength="4" placeholder="K7QF" autocomplete="off"><button class="btn" data-x="join">Unirse</button>'}
+    ${a.searching ? '<p>Buscando rival…</p><button class="btn" data-x="cancel">Cancelar búsqueda</button>' : a.inRoom ? '<p>Ya estás en una sala.</p><button class="btn" data-x="leave">Salir de la sala</button>'
+      : '<input class="nick" data-x="nick" maxlength="14" placeholder="Tu nombre" autocomplete="off"><button class="btn" data-x="search">Buscar partida</button><p style="margin:0;opacity:.7">o con un amigo</p><button class="btn" data-x="create">Crear sala</button><p style="margin:0;opacity:.7">o únete con un código</p><input data-x="code" maxlength="4" placeholder="K7QF" autocomplete="off"><button class="btn" data-x="join">Unirse</button>'}
     <div class="st"></div><button class="ghost" data-x="close">Cerrar</button></div>`;
   document.body.append(menu);
+  const nk = menu.querySelector<HTMLInputElement>('[data-x=nick]'); if (nk) { nk.value = nick(); nk.addEventListener('change', () => setNick(nk.value)); }
   const run = (f: () => Promise<void>) => { menuStatus('Conectando…'); f().catch(e => menuStatus(e?.message ?? 'Error')); };
   menu.addEventListener('click', ev => {
     const x = (ev.target as HTMLElement).dataset.x; if (!x) return;
     if (x === 'close') closeMenu();
     else if (x === 'create') run(a.create);
+    else if (x === 'search') { if (nk) setNick(nk.value); run(async () => { menu!.querySelector('[data-x=search]')!.textContent = 'Cancelar búsqueda'; (menu!.querySelector('[data-x=search]') as HTMLElement).dataset.x = 'cancel'; await a.search(); }); }
+    else if (x === 'cancel') { a.cancel(); closeMenu(); }
     else if (x === 'join') run(() => a.join((menu!.querySelector('[data-x=code]') as HTMLInputElement).value));
     else if (x === 'leave') { a.leave?.(); closeMenu(); }
   });

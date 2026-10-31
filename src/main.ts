@@ -20,6 +20,9 @@ import { LocalChannel } from './ui/chat';
 import { isMuted, setBoss, setTension, sfx, sfxCard, startMusic, toggleMute } from './ui/sound';
 import { Online } from './net/online';
 import { applyMove, toView, view, type Seat } from './net/sync';
+import { registrarResultado } from './net/liga';
+import { buscarSalas, latido, publicar, retirar } from './net/matchmaking';
+import { ensureUser } from './net/firebase';
 import { closeMenu, menuStatus, openOnlineMenu, setRoomTag } from './net/onlineUi';
 import { openAdventure, closeAdventure, rivalImg } from './adventure/adventure';
 import { NATIONS, PLAYABLE, beaten, faction, markWon, nextRival, progress, edgeOf, type Rival } from './adventure/rivals';
@@ -338,7 +341,7 @@ function render() {
   prevHp = new Map(); lastBoard = [[], []];
   ghostCache = new Map();
   s.p.forEach((p, i) => p.board.forEach(u => { seen.add(u.uid); prevHp.set(u.uid, [atkOf(u), curHp(u)]); lastBoard[i].push(u.uid); ghostCache.set(u.uid, { id: u.card, u: { ...u, kw: [...u.kw] } }); }));
-  if (s.winner !== null && !ended) { ended = true; if (adv && !adv.free && s.winner === 0) markWon(adv.nation, adv.rival.id); if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
+  if (s.winner !== null && !ended) { ended = true; if (adv && !adv.free && s.winner === 0) markWon(adv.nation, adv.rival.id); if (online && s.winner !== -1 && online.isReady) registrarResultado(online.code, s.winner === 0, s.p[0].nexus, s.p[1].nexus).then(r => { if (r) toast(`${r.delta >= 0 ? '▲ +' : '▼ '}${r.delta} PT · ahora ${r.despues} PT`); }).catch(() => {}); if (online) Online.clearSaved(); sfx(s.winner === 0 ? 'win' : 'lose'); if (s.winner === 0) react('win'); else if (s.winner === 1) react('lose'); }
   logv.innerHTML = log; chatEl.hidden = !chatOpen;
 }
 // ---------- Acciones ----------
@@ -472,9 +475,33 @@ function pump() {
     vfx('banner small', `⚔ ${side ? 'El rival ataca' : 'Atacas'} con ${m.action.units.length}`); render(); setTimeout(apply, 900);
   } else apply();
 }
+let searching = false, myQ = '', hb: ReturnType<typeof setInterval> | undefined, poll: ReturnType<typeof setInterval> | undefined;
+function stopSearch() { clearInterval(hb); clearInterval(poll); searching = false; if (myQ) retirar(myQ); myQ = ''; }
+/** Busca partida: se une a una sala que espera rival o crea la suya y la anuncia. Si dos jugadores buscan a la vez, el de código mayor cede y entra en la del menor. */
+async function search() {
+  startOnline(); curDeck = getDeck(); const deck = wireDeck(curDeck); searching = true;
+  try {
+    const u = await ensureUser();
+    for (const c of await buscarSalas(u.uid)) { if (!searching) return; try { await online!.join(c, deck); stopSearch(); return; } catch { /* llena o ya empezada: siguiente */ } }
+    if (!searching) return;
+    const code = await online!.create(deck); myQ = code; await publicar(code, u.uid);
+    menuStatus('Buscando rival…'); setRoomTag('Buscando rival…');
+    hb = setInterval(() => latido(code), 12000);
+    poll = setInterval(async () => {
+      if (!searching || !online || online.isReady) return;
+      for (const o of await buscarSalas(u.uid).catch(() => [] as string[])) if (o < code) {
+        clearInterval(poll); clearInterval(hb); retirar(code); myQ = ''; online.close(); online = null; startOnline();
+        try { await online!.join(o, deck); stopSearch(); } catch { online = null; searching = false; search().catch(e => menuStatus(e?.message ?? 'Error')); }
+        return;
+      }
+    }, 4000);
+  } catch (e) { stopSearch(); online?.close(); online = null; setRoomTag(''); throw e; }
+}
 function menuApi() {
   return {
-    inRoom: !!online,
+    inRoom: !!online, searching,
+    search,
+    cancel: () => { stopSearch(); online?.close(); online = null; setRoomTag(''); },
     create: async () => {
       startOnline();
       try { curDeck = getDeck(); const c = await online!.create(wireDeck(curDeck)); setRoomTag(`Sala ${c} · esperando rival…`); menuStatus(`Código de sala: ${c} — pásaselo a tu rival`); }
@@ -490,7 +517,7 @@ function startOnline() {
   online = new Online({
     onStatus: m => { setRoomTag(m); menuStatus(m); },
     onChat: m => { chat.push({ from: m.mine ? 'Tú' : 'Rival', text: m.text, side: m.mine ? 'me' : 'foe' }); if (!m.mine && !chatOpen) toast('💬 Rival: ' + m.text.slice(0, 60)); },
-    onReady: () => { ME = online!.seat; closeMenu(); hideMenu(); chat.sys('Chat online activo: puedes escribir a tu rival.'); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
+    onReady: () => { stopSearch(); ME = online!.seat; closeMenu(); hideMenu(); chat.sys('Chat online activo: puedes escribir a tu rival.'); freshUi(view(online!.g, ME)); chat.sys(`Sala ${online!.code}: juegas con ${facName(0)}.`); },
     onMoves: (g, fresh, replay) => { if (replay) { queue.length = 0; freshUi(view(g, ME)); } else { queue.push(...fresh); if (!pumping) pump(); } },
     onSettled: () => { if (!pumping && !queue.length && busy) { busy = false; render(); } },
   });
