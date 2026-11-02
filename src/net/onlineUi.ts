@@ -1,4 +1,5 @@
 import { nick, setNick } from './liga';
+import type { LiveRow } from './spectate';
 // Menú "Jugar online" y etiqueta de sala. Vive fuera de render() para no perderse al repintar.
 const CSS = `
 .onl{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse 70% 80% at 50% 45%,#2a1a5acc 0,#0d0820e6 55%,#04020aef 100%);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);animation:onlIn .35s ease-out both}
@@ -39,6 +40,13 @@ const CSS = `
 .onl .avs button{width:38px;height:38px;font-size:20px;border-radius:50%;border:1px solid #c7a2ff55;background:#0c0820aa;color:#fff}
 .onl .avs button.on{border-color:#2cf0c4;box-shadow:0 0 12px #2cf0c488}
 .onl .rkl .av{margin-right:4px}
+.onl .lv{display:grid;gap:8px;max-height:42vh;overflow:auto;text-align:left}
+.onl .lvr{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;width:100%;padding:10px 14px;border:1px solid #c7a2ff3d;border-radius:4px;background:#0c0820aa;color:#e3d6ff;text-align:left;transition:border-color .2s,background .2s,transform .2s}
+.onl .lvr:hover,.onl .lvr:focus-visible{outline:0;border-color:#2cf0c4;background:#1a1240cc;transform:translateX(3px)}
+.onl .lvr b{font:700 15px Cinzel,serif;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.onl .lvr span{font:600 11px Cinzel,serif;letter-spacing:.14em;color:#f2d58a;white-space:nowrap}
+.onl .lvr small{grid-column:1/-1;font:500 12px Cinzel,serif;letter-spacing:.06em;color:#a99cc8}
+.onl .lv .st{text-align:center;padding:10px}
 @media(prefers-reduced-motion:reduce){.onl,.onl>div,.onl>div::before,.onl>div::after,.onl .mt,.onl .st{animation:none!important}}
 `;
 let tag: HTMLElement | null = null, menu: HTMLElement | null = null;
@@ -52,19 +60,40 @@ export function setRoomTag(text: string) {
 export function closeMenu() { menu?.remove(); menu = null; }
 export function menuStatus(t: string) { const e = menu?.querySelector('.st'); if (e) e.textContent = t; }
 
-export function openOnlineMenu(a: { create(): Promise<void>; join(code: string): Promise<void>; search(): Promise<void>; cancel(): void; leave?: () => void; inRoom: boolean; searching: boolean }) {
+export function openOnlineMenu(a: { create(): Promise<void>; join(code: string): Promise<void>; search(): Promise<void>; cancel(): void; leave?: () => void; watch?: () => Promise<LiveRow[]>; spectate?: (code: string) => Promise<void>; stopWatch?: () => void; spectating?: boolean; inRoom: boolean; searching: boolean }) {
   style(); closeMenu();
   menu = document.createElement('div'); menu.className = 'onl';
   menu.innerHTML = `<i class=\"mt\" style=\"--x:8%;--s:3px;--c:#c7a2ff;--d:11s;--w:-1s;--dx:30px\"></i><i class=\"mt\" style=\"--x:22%;--s:2px;--c:#2cf0c4;--d:14s;--w:-6s;--dx:-40px\"></i><i class=\"mt\" style=\"--x:37%;--s:4px;--c:#f2d58a;--d:12s;--w:-3s;--dx:25px\"></i><i class=\"mt\" style=\"--x:52%;--s:2px;--c:#c7a2ff;--d:15s;--w:-9s;--dx:-20px\"></i><i class=\"mt\" style=\"--x:66%;--s:3px;--c:#2cf0c4;--d:10s;--w:-4s;--dx:40px\"></i><i class=\"mt\" style=\"--x:80%;--s:4px;--c:#f2d58a;--d:13s;--w:-7s;--dx:-30px\"></i><i class=\"mt\" style=\"--x:92%;--s:2px;--c:#c7a2ff;--d:12s;--w:-2s;--dx:20px\"></i><div><h2>Jugar online</h2>
-    ${a.searching ? '<p>Buscando rival…</p><button class="btn" data-x="cancel">Cancelar búsqueda</button>' : a.inRoom ? '<p>Ya estás en una sala.</p><button class="btn" data-x="leave">Salir de la sala</button>'
-      : '<input class="nick" data-x="nick" maxlength="14" placeholder="Tu nombre" autocomplete="off"><button class="btn" data-x="search">Buscar partida</button><p style="margin:0;opacity:.7">o con un amigo</p><button class="btn" data-x="create">Crear sala</button><p style="margin:0;opacity:.7">o únete con un código</p><input data-x="code" maxlength="4" placeholder="K7QF" autocomplete="off"><button class="btn" data-x="join">Unirse</button>'}
+    ${a.spectating ? '<p>Estás viendo una partida como espectador.</p><button class="btn" data-x="specleave">Dejar de ver</button>' : a.searching ? '<p>Buscando rival…</p><button class="btn" data-x="cancel">Cancelar búsqueda</button>' : a.inRoom ? '<p>Ya estás en una sala.</p><button class="btn" data-x="leave">Salir de la sala</button>'
+      : '<input class="nick" data-x="nick" maxlength="14" placeholder="Tu nombre" autocomplete="off"><button class="btn" data-x="search">Buscar partida</button><p style="margin:0;opacity:.7">o con un amigo</p><button class="btn" data-x="create">Crear sala</button><p style="margin:0;opacity:.7">o únete con un código</p><input data-x="code" maxlength="4" placeholder="K7QF" autocomplete="off"><button class="btn" data-x="join">Unirse</button><p style="margin:0;opacity:.7">o mira una partida</p><button class="btn" data-x="watch">Ver en directo</button>'}
     <div class="st"></div><button class="ghost" data-x="close">Cerrar</button></div>`;
   document.body.append(menu);
   const nk = menu.querySelector<HTMLInputElement>('[data-x=nick]'); if (nk) { nk.value = nick(); nk.addEventListener('change', () => setNick(nk.value)); }
   const run = (f: () => Promise<void>) => { menuStatus('Conectando…'); f().catch(e => menuStatus(e?.message ?? 'Error')); };
+  const showWatch = async () => {
+    const panel = menu!.querySelector('div')!;
+    panel.innerHTML = '<h2>En directo</h2><p>Elige una partida para verla como espectador</p><div class="lv"><p class="st" style="display:block">Buscando partidas…</p></div><p style="margin:0;opacity:.7">o con un código</p><input data-x="scode" maxlength="4" placeholder="K7QF" autocomplete="off"><button class="btn" data-x="speccode">Ver con código</button><div class="st"></div><button class="ghost" data-x="back">Volver</button>';
+    const lv = panel.querySelector('.lv')!;
+    try {
+      const rows = await a.watch!();
+      lv.innerHTML = '';
+      if (!rows.length) { lv.innerHTML = '<p class="st" style="display:block">Ahora mismo no hay partidas en curso.</p>'; return; }
+      for (const r of rows) {
+        const b = document.createElement('button'); b.className = 'lvr'; b.dataset.x = 'spec'; b.dataset.c = r.code;
+        const n = document.createElement('b'); n.textContent = r.hostNick; const f = document.createElement('span'); f.textContent = `${r.f0} vs ${r.f1}`;
+        const m = document.createElement('small'); m.textContent = `Sala ${r.code} · Ronda ${r.round} · ♥ ${r.n0} – ${r.n1}`;
+        b.append(n, f, m); lv.append(b);
+      }
+    } catch (e) { lv.innerHTML = ''; const p = document.createElement('p'); p.className = 'st'; p.style.display = 'block'; p.textContent = (e as Error)?.message ?? 'No se pudo cargar la lista'; lv.append(p); }
+  };
   menu.addEventListener('click', ev => {
-    const x = (ev.target as HTMLElement).dataset.x; if (!x) return;
+    const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-x]'), x = el?.dataset.x; if (!el || !x) return;
     if (x === 'close') closeMenu();
+    else if (x === 'watch') showWatch();
+    else if (x === 'back') openOnlineMenu(a);
+    else if (x === 'specleave') { a.stopWatch?.(); closeMenu(); }
+    else if (x === 'spec') run(() => a.spectate!(el.dataset.c ?? ''));
+    else if (x === 'speccode') run(() => a.spectate!((menu!.querySelector('[data-x=scode]') as HTMLInputElement).value));
     else if (x === 'create') run(a.create);
     else if (x === 'search') { if (nk) setNick(nk.value); run(async () => { menu!.querySelector('[data-x=search]')!.textContent = 'Cancelar búsqueda'; (menu!.querySelector('[data-x=search]') as HTMLElement).dataset.x = 'cancel'; await a.search(); }); }
     else if (x === 'cancel') { a.cancel(); closeMenu(); }

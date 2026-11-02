@@ -1,8 +1,9 @@
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db, ensureUser, isConfigured, netErr } from './firebase';
 import { allowed, applyMove, initialState, toWire, type Seat } from './sync';
 import { DECKS } from '../data/cards';
-import { parseWire } from '../decks';
+import { deckFaction, parseWire } from '../decks';
+import { nick } from './liga';
 import type { Action, State } from '../engine/types';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O/1/I
@@ -25,7 +26,7 @@ export class Online {
   g!: State;
   private host = ''; private guest = ''; private seed = 0;
   private applied = 0; private sending = false; private sentAt = -1; private unsubs: (() => void)[] = [];
-  private chatSeen = new Set<string>();
+  private chatSeen = new Set<string>(); private liveT: ReturnType<typeof setInterval> | undefined; private liveOn = false;
   private ready = false; private pulled = false; private waiters: (() => void)[] = [];
   constructor(private h: OnlineHandlers) {}
 
@@ -90,6 +91,7 @@ export class Online {
       if (d.status === 'playing' && this.guest && !this.ready) {
         this.ready = true; this.g = initialState(this.seed, this.decks); this.applied = 0; this.pulled = false;
         this.h.onReady(); this.h.onStatus(`Sala ${this.code}: ¡partida en marcha!`);
+        if (this.seat === 0) { this.liveOn = true; this.liveTick(); this.liveT = setInterval(() => this.liveTick(), 15000); }   // el anfitrión anuncia la partida para los espectadores
         // solo se escuchan las jugadas cuando ya hay dos jugadores (así las reglas dejan leer)
         this.unsubs.push(onSnapshot(query(collection(gref, 'chat'), orderBy('t')), cs => cs.docChanges().forEach(c => {
           if (c.type !== 'added' || this.chatSeen.has(c.doc.id)) return; this.chatSeen.add(c.doc.id);
@@ -99,6 +101,15 @@ export class Online {
       }
     }, e => this.h.onStatus(netErr(e))));
   }
+
+  /** Latido de la partida en tcgLive/{código}: es lo que ven los espectadores en la lista de partidas en directo. */
+  private liveTick() {
+    if (!this.liveOn || !this.g) return;
+    const g = this.g, ref = doc(db, 'tcgLive', this.code);
+    if (g.winner !== null) { this.stopLive(); return; }
+    setDoc(ref, { host: this.uid, hostNick: nick(), f0: deckFaction(this.decks[0]), f1: deckFaction(this.decks[1]), round: g.round, n0: g.p[0].nexus, n1: g.p[1].nexus, over: false, t: Date.now() }).catch(() => {});
+  }
+  private stopLive() { clearInterval(this.liveT); if (this.liveOn) { this.liveOn = false; deleteDoc(doc(db, 'tcgLive', this.code)).catch(() => {}); } }
 
   /** Aplica en orden las jugadas ya CONFIRMADAS por el servidor (nunca las pendientes locales). */
   private pull(docs: { id: string; data(): any; metadata: { hasPendingWrites: boolean } }[]) {
@@ -155,5 +166,5 @@ export class Online {
   get busy() { return this.sending; }
   get isReady() { return this.ready; }
 
-  close() { this.unsubs.forEach(u => u()); this.unsubs = []; this.waiters = []; Online.clearSaved(); }
+  close() { this.stopLive(); this.unsubs.forEach(u => u()); this.unsubs = []; this.waiters = []; Online.clearSaved(); }
 }

@@ -1,5 +1,5 @@
 /* Escena viva del menú principal (ver menuscene.ts). Tamaños en "u" = 1vh (limitado por el ancho en pantallas poco anchas). */
-body #title{background:radial-gradient(ellipse 75% 95% at 72% 50%,#33206f 0,#170d38 42%,#08050f 78%,#050309 100%)}
+body #title{background:radial-gradient(ellipse 75% 95% at 72% 50%,#534158 0,#2a1d33 42%,#150f1a 78%,#150f1a 100%)}
 body #title .t-art{display:none}
 body #title .t-bg{opacity:.55}
 body #title .t-moon{animation:moonB 7s ease-in-out infinite alternate}
@@ -20,14 +20,14 @@ body #title::after{content:"";position:absolute;inset:0;z-index:3;pointer-events
 .t-stage .flt{transform-origin:50% 100%;animation:chFloat var(--fd) ease-in-out calc(var(--del) + 1s) infinite alternate both}
 .t-stage .glow{position:absolute;left:-25%;right:-25%;top:5%;bottom:-5%;pointer-events:none;mix-blend-mode:screen;opacity:.6;background:radial-gradient(closest-side,rgba(var(--gr),.5),rgba(var(--gr),.12) 60%,transparent 100%);animation:glowP calc(var(--fd)*.7) ease-in-out infinite alternate}
 @keyframes glowP{to{opacity:1;transform:scale(1.08)}}
-.t-stage .st-rays{position:absolute;left:50%;top:48%;width:calc(var(--u)*190);aspect-ratio:1;margin:calc(var(--u)*-95) 0 0 calc(var(--u)*-95);mix-blend-mode:screen;background:repeating-conic-gradient(from 0deg,rgba(190,150,255,.16) 0 5deg,transparent 5deg 16deg);-webkit-mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);animation:rayS 90s linear infinite}
+.t-stage .st-rays{position:absolute;left:50%;top:48%;width:calc(var(--u)*190);aspect-ratio:1;margin:calc(var(--u)*-95) 0 0 calc(var(--u)*-95);mix-blend-mode:screen;background:repeating-conic-gradient(from 0deg,rgba(200,209,237,.16) 0 5deg,transparent 5deg 16deg);-webkit-mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);mask-image:radial-gradient(closest-side,#000 10%,transparent 72%);animation:rayS 90s linear infinite}
 @keyframes rayS{to{transform:rotate(360deg)}}
-.t-stage .st-halo{position:absolute;left:28%;top:16%;width:62%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(150,100,255,.4),rgba(80,40,170,.16) 45%,transparent 70%);filter:blur(10px);animation:haloB 6s ease-in-out infinite alternate}
+.t-stage .st-halo{position:absolute;left:28%;top:16%;width:62%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,rgba(154,122,212,.4),rgba(83,65,88,.16) 45%,transparent 70%);filter:blur(10px);animation:haloB 6s ease-in-out infinite alternate}
 @keyframes haloB{to{transform:scale(1.1);opacity:.7}}
-.t-stage .st-fog{position:absolute;left:-10%;right:-10%;bottom:-6%;height:45%;z-index:4;filter:blur(24px);background:radial-gradient(ellipse at 30% 60%,rgba(160,120,255,.24),transparent 60%),radial-gradient(ellipse at 75% 50%,rgba(70,220,255,.15),transparent 60%);animation:fogA 22s ease-in-out infinite alternate}
+.t-stage .st-fog{position:absolute;left:-10%;right:-10%;bottom:-6%;height:45%;z-index:4;filter:blur(24px);background:radial-gradient(ellipse at 30% 60%,rgba(154,122,212,.24),transparent 60%),radial-gradient(ellipse at 75% 50%,rgba(200,209,237,.15),transparent 60%);animation:fogA 22s ease-in-out infinite alternate}
 .t-stage .st-fog.b{bottom:auto;top:-8%;height:40%;opacity:.7;animation-duration:30s;animation-direction:alternate-reverse}
 @keyframes fogA{from{transform:translateX(-6%)}to{transform:translateX(6%) scale(1.08)}}
-.t-stage .st-flash{position:absolute;inset:0;z-index:7;opacity:0;mix-blend-mode:screen;background:radial-gradient(ellipse at 55% 50%,rgba(200,170,255,.4),transparent 65%)}
+.t-stage .st-flash{position:absolute;inset:0;z-index:7;opacity:0;mix-blend-mode:screen;background:radial-gradient(ellipse at 55% 50%,rgba(243,180,166,.4),transparent 65%)}
 .t-stage.pulse .st-flash{animation:flashP .7s ease-out}
 @keyframes flashP{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
 .t-stage .st-fx{position:absolute;inset:0;width:100%;height:100%;z-index:8}

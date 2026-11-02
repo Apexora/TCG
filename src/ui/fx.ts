@@ -70,17 +70,26 @@ let titleEl: HTMLElement | null = null;
 import { openRanking } from './ranking';
 import { openPerfil } from './perfil';
 import { mountMenuScene } from './menuscene';
+import { mountHero } from './hero';
+import { playIntro } from './intro';
 export function showMenu() {
   if (titleEl) return;
   const t = titleEl = document.createElement('div'); t.id = 'title';
-  t.innerHTML = `<div class="t-bg"></div><div class="t-moon"></div><div class="t-stage"></div>
-    <div class="t-in"><h1 class="t-logo">APEXORA<small>TCG</small></h1>
-    <div class="t-menu" role="menu"><button class="t-go on" data-m="ia" autofocus>Jugar con la IA</button><button class="t-go alt" data-m="online">Jugar Online</button><button class="t-go adv" data-m="adv">Aventura</button><button class="t-go rkb" data-m="rank">Ranking</button><button class="t-go dk" data-m="decks">Mis Mazos</button><button class="t-go" data-m="perfil">Perfil</button></div>
-    <div class="t-fac" role="radiogroup" aria-label="Elige tu mazo"></div>
-    <p class="t-hint">Elige tu mazo y un modo · sonido activado</p></div>`;
+  t.innerHTML = `<div class="ax-sky"></div><div class="ax-spot"></div><div class="t-stage"></div>
+    <div class="ax-nav ax-r" style="--d:.1s"><div class="ax-brand"><img src="${import.meta.env.BASE_URL}logo.png" alt="" width="38" height="38"><span>APEXORA</span></div><div class="ax-season"><span>ALFA</span><i>◆</i><span>2026</span></div></div>
+    <div class="ax-main"><p class="ax-eyebrow ax-r" style="--d:.25s"><i></i>TEMPORADA ALFA</p>
+    <div class="ax-title" role="heading" aria-level="1" aria-label="Apexora TCG"><span class="ax-word" aria-hidden="true"><span class="ax-ch" style="--i:0">A</span><span class="ax-ch" style="--i:1">P</span><span class="ax-ch" style="--i:2">E</span><span class="ax-ch" style="--i:3">X</span><span class="ax-ch" style="--i:4">O</span><span class="ax-ch" style="--i:5">R</span><span class="ax-ch" style="--i:6">A</span></span><small class="ax-r" style="--d:.95s">TCG</small></div>
+    <p class="ax-tag ax-r" style="--d:1.05s">Dos facciones. Un mundo roto.<br><em>Una sola carta lo decide todo.</em></p>
+    <div class="ax-menu" role="menu"><button class="ax-go on" data-m="ia" role="menuitem" autofocus><em>01</em><span><b>Jugar con la IA</b><small>Elige a tu rival</small></span><i aria-hidden="true">◆</i></button><button class="ax-go" data-m="online" role="menuitem"><em>02</em><span><b>Jugar Online</b><small>Duelos en vivo</small></span><i aria-hidden="true">◆</i></button><button class="ax-go" data-m="adv" role="menuitem"><em>03</em><span><b>Aventura</b><small>Mapa y jefes</small></span><i aria-hidden="true">◆</i></button><button class="ax-go" data-m="rank" role="menuitem"><em>04</em><span><b>Ranking</b><small>Escala la liga</small></span><i aria-hidden="true">◆</i></button><button class="ax-go" data-m="decks" role="menuitem"><em>05</em><span><b>Mis Mazos</b><small>Forja tu estrategia</small></span><i aria-hidden="true">◆</i></button><button class="ax-go " data-m="perfil" role="menuitem"><em>06</em><span><b>Perfil</b><small>Tu cuenta</small></span><i aria-hidden="true">◆</i></button></div>
+    <div class="ax-fac-w ax-r" style="--d:1.75s"><p class="ax-k">TU MAZO</p><div class="ax-fac" role="radiogroup" aria-label="Elige tu mazo"></div></div></div>
+    <div class="ax-ticker" aria-hidden="true"><div><span>LUMINARAE ◆ UMBRA ◆ AVENTURA ◆ DUELOS ONLINE ◆ RANKING ◆ MAZOS A TU MEDIDA ◆ FORJA TU LEYENDA ◆ </span><span>LUMINARAE ◆ UMBRA ◆ AVENTURA ◆ DUELOS ONLINE ◆ RANKING ◆ MAZOS A TU MEDIDA ◆ FORJA TU LEYENDA ◆ </span></div></div>
+    <span class="ax-c tl"></span><span class="ax-c tr"></span><span class="ax-c bl"></span><span class="ax-c br"></span>
+    <p class="ax-hint">Elige tu mazo y un modo · sonido activado</p>`;
   document.body.append(t);
+  mountHero(t.querySelector<HTMLElement>('.ax-sky')!, () => titleEl === t);
+  t.addEventListener('pointermove', e => { t.style.setProperty('--mx', e.clientX + 'px'); t.style.setProperty('--my', e.clientY + 'px'); });
   const scene = mountMenuScene(t.querySelector<HTMLElement>('.t-stage')!, () => titleEl === t);
-  const facEl = t.querySelector<HTMLElement>('.t-fac')!;
+  const facEl = t.querySelector<HTMLElement>('.ax-fac')!;
   const paint = () => {
     const cur = getDeck();
     facEl.innerHTML = `<button class="l" data-d="Luminarae" role="radio">☀ LUMINARAE</button><i>◆</i><button class="u" data-d="Umbra" role="radio">UMBRA ☾</button>`
@@ -148,10 +157,10 @@ export function showMenu() {
   facEl.addEventListener('click', e => { const b = (e.target as HTMLElement).closest<HTMLElement>('[data-d]'); if (!b) return; setDeck(b.dataset.d!); sfx('select'); paint(); paintRiv(); });
   paint(); paintRiv();
   const onProg = () => { if (titleEl === t) { paint(); paintRiv(); } else document.removeEventListener('tcg:progreso', onProg); }; document.addEventListener('tcg:progreso', onProg);
-  const items = Array.from(t.querySelectorAll<HTMLElement>('.t-menu .t-go'));
+  const items = Array.from(t.querySelectorAll<HTMLElement>('.ax-menu .ax-go'));
   const mark = (b: HTMLElement) => { if (b.classList.contains('on')) return; items.forEach(x => x.classList.toggle('on', x === b)); scene.pulse(); };
   items.forEach(b => { b.addEventListener('mouseenter', () => mark(b)); b.addEventListener('focus', () => mark(b)); });
-  t.querySelector('.t-menu')!.addEventListener('keydown', e => {
+  t.querySelector('.ax-menu')!.addEventListener('keydown', e => {
     const k = (e as KeyboardEvent).key; if (k !== 'ArrowDown' && k !== 'ArrowUp') return;
     e.preventDefault(); const i = items.findIndex(x => x === document.activeElement); items[(i + (k === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); sfx('select');
   });
@@ -166,5 +175,5 @@ export function showMenu() {
   }));
 }
 export function hideMenu() { const t = titleEl; if (!t) return; titleEl = null; t.classList.add('out'); setTimeout(() => t.remove(), 900); }
-function title() { showMenu(); }
+function title() { showMenu(); playIntro(() => titleEl?.classList.add('go')); }
 export function initFx() { initCombatFx(); particles(); trail(); foil(); reactions(); title(); }

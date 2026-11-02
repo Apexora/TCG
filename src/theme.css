@@ -1,12 +1,12 @@
 /* Cartas Alfa · "carmesí y ciruela": cambia solo tokens, fondo y títulos; el tablero y las cartas no se tocan */
 :root[data-mood="tcg"] {
-  --gold: #e3b488; --gold-hot: #f7ddc0; --gold-deep: #a99441;
+  --gold: #d89483; --gold-hot: #f3d2c9; --gold-deep: #a99441;
   --red: #d2243a; --ink: #f7ece0; --muted: #cdb8c4;
-  --surface: #1c0f1a; --surface-raised: #2a1626; --line: #f1cfae22;
+  --surface: #1d1523; --surface-raised: #2a1d33; --line: #e9b9ad22;
   font-synthesis: none;
 }
-:root[data-mood="tcg"] { background: #12080f; }
-:root[data-mood="tcg"] body { background: radial-gradient(ellipse at 50% -12%, #6a2b4d 0, #2a1226 46%, #12080f 100%) fixed; }
+:root[data-mood="tcg"] { background: #150f1a; }
+:root[data-mood="tcg"] body { background: radial-gradient(ellipse at 50% -12%, #534158 0, #2a1d33 46%, #150f1a 100%) fixed; }
 :root[data-mood="tcg"] header { border-bottom-color: rgba(213,110,111,.35); background: rgba(24,10,20,.9); }
 :root[data-mood="tcg"] h1 { font-weight: 400; letter-spacing: .06em; }
-:root[data-mood="tcg"] .btn:not(.atk-btn) { background: linear-gradient(180deg, #f1cfae, #e3b488); color: #351b16; }
+:root[data-mood="tcg"] .btn:not(.atk-btn) { background: linear-gradient(180deg, #e9b9ad, #d89483); color: #351b16; }
