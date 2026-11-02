@@ -215,3 +215,17 @@ html[data-mood] .mull p{max-width:min(90vw,560px);white-space:normal;text-wrap:b
 html[data-mood] .over h2{white-space:normal;text-wrap:balance;max-width:92vw}
 html[data-mood] .roomtag{max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 html[data-mood] .roomtag{top:66px}
+
+/* ---------- Ajuste de carta: nombre + palabras clave caben sin chocar con las stats ---------- */
+html[data-mood] .card:not(.mini) .panel{padding-top:calc(var(--w)*.05)!important}
+html[data-mood] .card:not(.mini) .nm{font-size:.9em;line-height:1.06;-webkit-line-clamp:2}
+html[data-mood] .card:not(.mini) .tx em{font-size:.66em;line-height:1.2;letter-spacing:.05em;-webkit-line-clamp:2}
+html[data-mood] .card .tx em{overflow-wrap:normal;word-break:normal}
+/* Botón circular de turno: el texto nunca se parte a mitad de palabra */
+html[data-mood] .endbtn span{overflow-wrap:normal;word-break:keep-all;letter-spacing:.12em;font-size:clamp(10px,1.15vw,16px);padding:0 4px}
+
+/* ---------- Jefe final: sin bruma ni brasas que molesten; solo un resplandor suave abajo ---------- */
+body.boss #app{filter:none}
+body.boss::before{background:radial-gradient(ellipse at 50% 125%,color-mix(in srgb,var(--boss) 26%,transparent),transparent 55%)!important;animation:none!important;opacity:.7}
+body.boss::after{display:none}
+body.boss.enraged::before{opacity:1}
