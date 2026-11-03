@@ -16,7 +16,7 @@ mkv_grumete_atr//, mkv_gaviota//, mkv_canonero//, mkv_bohemio//, mkv_loro//, mkv
 tsk_cachorro//, tsk_aprendiz//, tsk_guardian//, tsk_hermano//, tsk_chaman//, tsk_lobo//, tsk_cantor//, tsk_ventisca//, tsk_jefe//, tsk_yeti//, tsk_guerrera//, tsk_hechicera, tsk_mamut//, tsk_dragon//, tsk_anciano//, tsk_sabio//, tsk_hoguera//, tsk_aliento//, tsk_escarcha//, tsk_lanza//, tsk_juramento//, tsk_manada//, tsk_ventiscaz//, tsk_prision//, tsk_aurora//, tsk_lobezno// (ficha)
 
 **Psybernia (psy_)**
-psy_larva, psy_resto, psy_gusano, psy_carcelero, psy_cobaya, psy_quimera, psy_segador, psy_aborto, psy_reptante, psy_amalgama, psy_hibrido, psy_abominacion, psy_hidra, psy_coloso, psy_valeria, psy_bisturi, psy_suero, psy_inyeccion, psy_quirofano, psy_disecar, psy_amputar, psy_fusion, psy_cria, psy_arena, psy_purga, psy_engendro (ficha)
+psy_larva//, psy_resto//, psy_gusano//, psy_carcelero//, psy_cobaya//, psy_quimera//, psy_segador//, psy_aborto//, psy_reptante//, psy_amalgama//, psy_hibrido//, psy_abominacion//, psy_hidra//, psy_coloso//, psy_valeria//, psy_bisturi//, psy_suero//, psy_inyeccion//, psy_quirofano//, psy_disecar//, psy_amputar//, psy_fusion//, psy_cria//, psy_arena//, psy_purga//, psy_engendro// (ficha)
 
 **Sinfalía (sin_)**
 sin_cantor, sin_vecino, sin_panadero, sin_bailarin, sin_mensajero, sin_regalo, sin_poeta, sin_curandera, sin_anfitrion, sin_abuela, sin_juglar, sin_festejos, sin_guardian, sin_coro, sin_alcalde, sin_corazon, sin_abrazo, sin_favor, sin_gesto, sin_obsequio, sin_canto, sin_banquete, sin_tregua, sin_fiesta, sin_jubileo, sin_invitado (ficha)
