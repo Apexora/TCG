@@ -31,3 +31,7 @@
 
 /* Tribus Skaldrak: Glaciar (muro de hielo sobre el Nexo) */
 .pt .ward{margin-top:2px;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:700;color:#e8f6ff;background:linear-gradient(#2a6f9e,#0c2236);border:1px solid #bfe6ff;box-shadow:0 0 8px #8fd3ff88;text-align:center}
+
+/* Psybernia · Soterrado: la unidad está enterrada bajo la arena (intocable por hechizos hasta que emerge) */
+.card.mini.buried{opacity:.72;filter:sepia(.55) saturate(.8) brightness(.9);box-shadow:inset 0 -14px 14px -8px rgba(212,154,106,.85)}
+.card.mini.buried::after{content:'';position:absolute;inset:auto 0 0 0;height:34%;pointer-events:none;background:repeating-linear-gradient(100deg,rgba(212,154,106,.55) 0 6px,rgba(150,98,60,.45) 6px 11px);-webkit-mask:linear-gradient(transparent,#000 60%);mask:linear-gradient(transparent,#000 60%);border-radius:0 0 inherit inherit}

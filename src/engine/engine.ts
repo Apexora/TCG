@@ -23,7 +23,16 @@ const kill = (u: Unit) => { u.dmg = u.hp + u.th + 999; };
 const power = (u: Unit) => atkOf(u) * 1e6 + curHp(u) * 1e3 + CARDS[u.card].cost;
 const strongest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) > power(b) ? u : b), undefined);
 const weakest = (l: Unit[]) => l.reduce<Unit | undefined>((b, u) => (!b || power(u) < power(b) ? u : b), undefined);
-const ENEMY_T = ['dmgEnemy', 'avalancha', 'certero', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit'];
+const ENEMY_T = ['dmgEnemy', 'avalancha', 'certero', 'drain', 'destroyEnemy', 'sacDmg', 'frost', 'silence', 'chicle', 'virus', 'extraer', 'diseccion'], ALLY_T = ['buffAlly', 'giveKw', 'tempBuff', 'healUnit', 'modificar'];
+/** Soterrado (Psybernia): la unidad está enterrada; ningún hechizo ni efecto rival puede elegirla ni alcanzarla. Emerge (pierde la palabra clave) al atacar o al bloquear. */
+export const hidden = (u: Unit) => u.kw.includes('soterrado');
+export const exposed = (l: Unit[]) => l.filter(u => !hidden(u));
+/** Estados temporales/dañinos que no forman parte del "genoma" de una unidad (no se heredan ni se extraen). */
+const STATUS_KW: Keyword[] = ['virus', 'marchito', 'pegada', 'soterrado'];
+/** Bonus de poder de una unidad enterrada al emerger para atacar (Emboscada). */
+const AMBUSH = 1;
+/** Palabras clave por orden de valor al extraerlas (Extracción genética). */
+const PRIZE: Keyword[] = ['letal', 'barrera', 'rapido', 'robovida', 'veneno', 'arrollar', 'duro', 'regenera', 'elusivo', 'temible', 'retador'];
 /** Objetivo manual que exige un hechizo (null = sin objetivo). */
 export function targetKind(id: string): 'enemy' | 'ally' | null {
   const c = CARDS[id]; if (!c || c.type !== 'spell') return null;
@@ -89,6 +98,21 @@ function arrive(s: State, i: number, u: Unit) {
   mates.forEach(x => { x.atk += 1; });
 }
 
+/** Mutante (Psybernia): al cerrar cada ronda el cuerpo sufre una mutación aleatoria y permanente (determinista: usa la semilla de la partida).
+ *  25% +2 de poder · 25% +2 de vida · 30% gana una palabra clave nueva · 20% mutación defectuosa (−1/−1, nunca la mata). */
+const MUT_KW: Keyword[] = ['rapido', 'duro', 'regenera', 'veneno', 'arrollar', 'robovida', 'soterrado'];
+function mutate(s: State, u: Unit) {
+  const r = rand(s), name = `{${u.card}}`;
+  if (r < 0.25) { u.atk += 2; s.log.push(`🧬 ${name} muta: +2 de poder`); }
+  else if (r < 0.5) { u.hp += 2; s.log.push(`🧬 ${name} muta: +2 de vida`); }
+  else if (r < 0.8) {
+    const pool = MUT_KW.filter(k => !u.kw.includes(k));
+    if (pool.length) { const k = pool[Math.floor(rand(s) * pool.length)]; u.kw.push(k); s.log.push(`🧬 ${name} muta y desarrolla ${k}`); }
+    else { u.atk += 1; u.hp += 1; s.log.push(`🧬 ${name} muta: +1/+1`); }
+  } else { u.atk = Math.max(0, u.atk - 1); u.hp = Math.max(1, u.hp - 1); s.log.push(`🧬 ${name} sufre una mutación defectuosa: −1/−1`); }
+  const cap = u.hp + u.th + (u.fb ?? 0); if (u.dmg >= cap) u.dmg = cap - 1;
+}
+
 export function newGame(decks: [string[], string[]], seed: number): State {
   const mk = (d: string[]) => ({ nexus: 20, deck: [...d], hand: [] as string[], board: [] as Unit[], mana: 0, maxMana: 0, spell: 0, played: [] as string[] });
   const s: State = { p: [mk(decks[0]), mk(decks[1])], round: 0, token: 0, active: 0, phase: 'mulligan', passes: 0, winner: null, seed, uid: 0, log: [], stack: [], attackers: [], blocks: {}, forced: [], tok: [false, false], resumePhase: 'main', mull: [false, false] };
@@ -133,7 +157,7 @@ function endRound(s: State) {
   // Andanada (Markivton): cada barco que se quedó en puerto (no atacó) cañonea a la unidad enemiga más fuerte; sin unidades, al Nexo
   for (const i of [0, 1] as const) {
     const guns = s.p[i].board.filter(u => u.kw.includes('andanada') && !(s.atkd ?? []).includes(u.uid));
-    for (const g of guns) { const t = strongest(s.p[o(i)].board.filter(x => curHp(x) > 0)); if (t) dealDamage(s, t, 1, { u: g, owner: i }); else hitNexus(s, o(i), 1); }
+    for (const g of guns) { const t = strongest(exposed(s.p[o(i)].board).filter(x => curHp(x) > 0)); if (t) dealDamage(s, t, 1, { u: g, owner: i }); else hitNexus(s, o(i), 1); }
     if (guns.length) s.log.push(`💥 Andanada: J${i + 1} cañonea con ${guns.length} barco(s)`);
   }
   cleanup(s); checkWin(s);
@@ -162,8 +186,8 @@ function endRound(s: State) {
   cleanup(s);
   for (const p of s.p) p.board.forEach(u => { u.ta = 0; u.th = 0; const cap = u.hp + (u.fb ?? 0); if (u.dmg >= cap) u.dmg = cap - 1; u.kw = u.kw.filter(k => k !== 'pegada'); });
   s.peace = false;
-  // Mutante (Psybernia): +2 de poder y -1 de vida permanentes al cerrar la ronda (su cuerpo se deteriora)
-  for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('mutante')) { u.atk += 2; u.hp -= 1; } });
+  // Mutante (Psybernia): cada Mutante sufre una mutación aleatoria y permanente al cerrar la ronda
+  for (const p of s.p) p.board.forEach(u => { if (u.kw.includes('mutante')) mutate(s, u); });
   cleanup(s);
   // Glacial (Skaldrak): si controlas alguna unidad Glacial, el Glaciar crece +1 al cerrar la ronda
   for (const i of [0, 1]) { if (s.p[i].board.some(u => u.kw.includes('glacial'))) { addWard(s, i, 1); s.log.push(`❄ Glacial: J${i + 1} levanta 1 de Glaciar`); } }
@@ -196,13 +220,15 @@ function syncAuras(s: State) {
 function cleanup(s: State) {
   for (let changed = true; changed;) {
     changed = false; syncAuras(s);
-    for (const p of s.p) {
-      const dead = p.board.filter(u => curHp(u) <= 0);
+    for (const idx of [0, 1] as const) {
+      const p = s.p[idx], dead = p.board.filter(u => curHp(u) <= 0);
       if (!dead.length) continue;
       changed = true; p.board = p.board.filter(u => curHp(u) > 0);
       for (const u of p.board) { const g = CARDS[u.card].grow; if (g) { u.atk += g.a * dead.length; u.hp += g.h * dead.length; } }
       const gifts = dead.filter(u => u.kw.includes('don')).length;   // Don (Sinfalía): al morir, tus unidades ganan +1 de poder
       if (gifts) for (const u of p.board) u.atk += gifts;
+      const spores = dead.filter(u => u.kw.includes('metastasis')).length;   // Metástasis (Psybernia): al morir deja un Engendro
+      if (spores) { spawn(s, idx, 'psy_engendro', spores); s.log.push(`🧫 Metástasis: ${spores} Engendro(s) brotan de los restos`); }
     }
   }
 }
@@ -230,7 +256,7 @@ function dealDamage(s: State, t: Unit, n: number, src?: { u: Unit; owner: number
   return dealt;
 }
 function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
-  const me = s.p[i], foe = s.p[o(i)];
+  const me = s.p[i], foe = s.p[o(i)], fb = exposed(foe.board);   // fb: unidades enemigas que el efecto puede ver (las Soterradas quedan fuera)
   switch (e.t) {
     case 'healNexus': heal(s, i, e.n); break;
     case 'hurtNexus': me.nexus -= e.n; break;
@@ -243,17 +269,21 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'tempBuffAll': me.board.forEach(u => { u.ta += e.a; u.th += e.h; }); break;
     case 'buffAll': me.board.forEach(u => { u.atk += e.a; u.hp += e.h; }); break;
     case 'giveKw': { const t = tgt ?? strongest(me.board); if (t && !t.kw.includes(e.kw as Keyword)) t.kw.push(e.kw); break; }
-    case 'dmgEnemy': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); } break; }
-    case 'drain': { const t = tgt ?? strongest(foe.board); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
-    case 'dmgAll': foe.board.forEach(u => { if (e.necro) necroDamage(s, u, e.n); else dealDamage(s, u, e.n); }); break;
-    case 'frost': { const t = tgt ?? strongest(foe.board); if (t) t.ta -= atkOf(t); break; }
+    case 'dmgEnemy': { const t = tgt ?? strongest(fb); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); } break; }
+    case 'drain': { const t = tgt ?? strongest(fb); if (t) { if (e.necro) necroDamage(s, t, e.n); else dealDamage(s, t, e.n); heal(s, i, e.heal ?? e.n); } break; }   // Drenar: la curación es FIJA (no depende del daño realmente infligido)
+    case 'dmgAll': fb.forEach(u => { if (e.necro) necroDamage(s, u, e.n); else dealDamage(s, u, e.n); }); break;
+    case 'frost': { const t = tgt ?? strongest(fb); if (t) t.ta -= atkOf(t); break; }
     case 'sacDraw': { const v = weakest(me.board.filter(u => u !== src)); if (v) { kill(v); cleanup(s); draw(s, i, e.n); } break; }
-    case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(foe.board); if (v && t) { const a = atkOf(v); kill(v); if (e.necro) necroDamage(s, t, a); else dealDamage(s, t, a); } break; }
-    case 'debuffEnemies': foe.board.forEach(u => { u.atk = Math.max(0, u.atk - e.a); u.hp -= e.h; }); break;
+    case 'sacDmg': { const v = weakest(me.board), t = tgt ?? strongest(fb); if (v && t) { const a = atkOf(v); kill(v); if (e.necro) necroDamage(s, t, a); else dealDamage(s, t, a); } break; }
+    case 'debuffEnemies': fb.forEach(u => { u.atk = Math.max(0, u.atk - e.a); u.hp -= e.h; }); break;
     case 'summon': spawn(s, i, e.card, e.n); break;
-    case 'fuse': { // Fusión (Psybernia): sacrifica a tu aliada más débil y la unidad absorbe sus estadísticas
+    case 'fuse': { // Fusión (Psybernia): sacrifica a tu aliada más débil; la unidad absorbe sus estadísticas y sus palabras clave
       const v = weakest(me.board.filter(u => u !== src)), t = src ?? strongest(me.board.filter(u => u !== v));
-      if (v && t && v !== t) { t.atk += v.atk; t.hp += Math.max(1, curHp(v)); kill(v); }
+      if (v && t && v !== t) {
+        t.atk += v.atk; t.hp += Math.max(1, curHp(v));
+        const got = v.kw.filter(k => !STATUS_KW.includes(k) && !t.kw.includes(k)); t.kw.push(...got);   // injerta también su genoma (palabras clave)
+        s.log.push(`🧬 Fusión: {${t.card}} absorbe a {${v.card}}${got.length ? ' y hereda ' + got.join(', ') : ''}`); kill(v);
+      }
       break;
     }
     case 'clone': { // Clonar (Ostraca): copia de tu aliada más fuerte con la mitad de sus estadísticas (redondeo arriba)
@@ -262,34 +292,34 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       break;
     }
     case 'tregua': s.peace = true; s.log.push('☮ Tregua: esta ronda nadie puede atacar'); break;
-    case 'chicle': { const t = tgt ?? strongest(foe.board); if (t && !t.kw.includes('pegada')) t.kw.push('pegada'); break; }
+    case 'chicle': { const t = tgt ?? strongest(fb); if (t && !t.kw.includes('pegada')) t.kw.push('pegada'); break; }
     case 'peaje': foe.mana = Math.max(0, foe.mana - e.n); break;
-    case 'poda': { const t = weakest(foe.board); if (t) kill(t); break; }
+    case 'poda': { const t = weakest(fb); if (t) kill(t); break; }
     case 'gas': s.gas = Math.max(s.gas ?? 0, e.n); s.log.push(`☣ Gas tóxico: ${s.gas} ronda(s)`); break;
-    case 'necroWeak': { const t = weakest(foe.board); if (t) necroDamage(s, t, e.n); break; }
-    case 'necroStrong': { const t = strongest(foe.board); if (t) necroDamage(s, t, e.n); break; }
-    case 'wither': { const t = tgt ?? strongest(foe.board); if (t && !coldBlooded(t)) { t.atk = 0; t.ta = Math.min(0, t.ta); s.log.push(`☠ {${t.card}} se marchita: su poder queda en 0`); } break; }
+    case 'necroWeak': { const t = weakest(fb); if (t) necroDamage(s, t, e.n); break; }
+    case 'necroStrong': { const t = strongest(fb); if (t) necroDamage(s, t, e.n); break; }
+    case 'wither': { const t = tgt ?? strongest(fb); if (t && !coldBlooded(t)) { t.atk = 0; t.ta = Math.min(0, t.ta); s.log.push(`☠ {${t.card}} se marchita: su poder queda en 0`); } break; }
     case 'discard': { const f = s.p[o(i)]; for (let k = 0; k < e.n && f.hand.length; k++) { const [c] = f.hand.splice(Math.floor(rand(s) * f.hand.length), 1); s.log.push(`☠ J${o(i) + 1} descarta {${c}}`); } break; }
     case 'mill': { const f = s.p[o(i)]; const n = Math.min(e.n, f.deck.length); if (n) { f.deck.splice(f.deck.length - n, n); s.log.push(`☠ Se eliminan ${n} carta(s) del mazo de J${o(i) + 1}`); } break; }
     case 'plant': { const f = s.p[o(i)]; for (let k = 0; k < e.n; k++) f.deck.splice(Math.floor(rand(s) * (f.deck.length + 1)), 0, e.card); s.log.push(`☠ Se cuela ${e.n > 1 ? e.n + ' veces ' : ''}{${e.card}} en el mazo de J${o(i) + 1}`); break; }
     case 'malware': for (let k = 0; k < e.n && foe.hand.length < 10; k++) foe.hand.push(MALWARE); s.log.push('🦠 Malware en la mano del rival'); break;
-    case 'virus': { const t = tgt ?? strongest(foe.board.filter(u => !u.kw.includes('virus') && !coldBlooded(u))); if (t && !t.kw.includes('virus') && !coldBlooded(t)) t.kw.push('virus'); break; }
+    case 'virus': { const t = tgt ?? strongest(fb.filter(u => !u.kw.includes('virus') && !coldBlooded(u))); if (t && !t.kw.includes('virus') && !coldBlooded(t)) t.kw.push('virus'); break; }
     case 'arco': { // Cortocircuito en cadena: salta entre unidades enemigas distintas, con 1 menos de daño en cada salto
-      const hit = new Set<Unit>(); let t: Unit | undefined = tgt ?? strongest(foe.board);
+      const hit = new Set<Unit>(); let t: Unit | undefined = tgt ?? strongest(fb);
       for (let d = e.n; d > 0 && t; d--) {
         hit.add(t); dealDamage(s, t, d);
-        const rest = foe.board.filter(u => !hit.has(u) && curHp(u) > 0); t = rest.length ? rest[Math.floor(rand(s) * rest.length)] : undefined;
+        const rest = fb.filter(u => !hit.has(u) && curHp(u) > 0); t = rest.length ? rest[Math.floor(rand(s) * rest.length)] : undefined;
       }
       s.log.push(`⚡ Cortocircuito: salta por ${hit.size} unidad(es)`); break;
     }
     case 'hack': { // Hackeo: controlas a la enemiga más fuerte hasta el final de la ronda (Efímera: se quema al golpear o al cerrar)
-      const t = strongest(foe.board);
+      const t = strongest(fb);
       if (t && me.board.length < 6) { if (!t.kw.includes('efimero')) t.kw.push('efimero'); defect(s, o(i), i, t); s.log.push('💻 Hackeo: una unidad enemiga cambia de bando'); }
       break;
     }
-    case 'soborno': { const t = weakest(foe.board); if (t && me.board.length < 6) { defect(s, o(i), i, t); s.log.push('💰 Soborno: una unidad enemiga se pasa a tu bando'); } break; }
+    case 'soborno': { const t = weakest(fb); if (t && me.board.length < 6) { defect(s, o(i), i, t); s.log.push('💰 Soborno: una unidad enemiga se pasa a tu bando'); } break; }
     case 'trueque': { // Traición: tu unidad más débil y la más débil del rival intercambian de bando
-      const a = weakest(me.board), b = weakest(foe.board);
+      const a = weakest(me.board), b = weakest(fb);
       if (a && b) { defect(s, i, o(i), a); defect(s, o(i), i, b); s.log.push('🗡 Traición: dos unidades cambian de bando'); }
       break;
     }
@@ -301,7 +331,7 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
     case 'apagon': s.apagon = s.apagon ?? [false, false]; s.apagon[o(i)] = true; foe.spell = 0; s.log.push('🌑 Apagón: el rival no puede lanzar hechizos esta ronda'); break;
     case 'copia': if (foe.hand.length && me.hand.length < 10) me.hand.push(foe.hand[Math.floor(rand(s) * foe.hand.length)]); break;   // robo de datos
     case 'certero': { // Tiro certero (Skaldrum): si el disparo destruye a la unidad, robas 1
-      const t = tgt ?? strongest(foe.board);
+      const t = tgt ?? strongest(fb);
       if (t) { const alive = curHp(t) > 0; dealDamage(s, t, e.n); if (alive && curHp(t) <= 0) { draw(s, i, 1); s.log.push('🎯 Tiro certero: la unidad cae y robas 1'); } }
       break;
     }
@@ -319,12 +349,12 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       break;
     case 'glaciar': addWard(s, i, e.n); s.log.push(`❄ Glaciar: J${i + 1} levanta ${e.n} (${wardOf(s, i)})`); break;
     case 'avalancha': { // Avalancha: gasta Glaciar para golpear con más fuerza a una enemiga
-      const t = tgt ?? strongest(foe.board);
+      const t = tgt ?? strongest(fb);
       if (t) { const sp = spendWard(s, i, e.max); dealDamage(s, t, e.base + sp); if (sp) s.log.push(`🏔 Avalancha: se gastan ${sp} de Glaciar`); }
       break;
     }
     case 'alud': { // Alud: gasta Glaciar para barrer a todas las enemigas
-      if (foe.board.length) { const sp = spendWard(s, i, e.max), d = e.base + Math.floor(sp / 2); if (sp) s.log.push(`🏔 Alud: se gastan ${sp} de Glaciar`); if (d > 0) foe.board.forEach(u => dealDamage(s, u, d)); }
+      if (fb.length) { const sp = spendWard(s, i, e.max), d = e.base + Math.floor(sp / 2); if (sp) s.log.push(`🏔 Alud: se gastan ${sp} de Glaciar`); if (d > 0) fb.forEach(u => dealDamage(s, u, d)); }
       break;
     }
     case 'buffSkanuj': me.board.forEach(u => { if (u.kw.includes('skanuj')) { u.atk += e.a; u.hp += e.h; } }); break;
@@ -335,10 +365,41 @@ function applyFx(s: State, i: number, e: Effect, src?: Unit, tgt?: Unit) {
       if (idx.length >= e.n) { for (const k of idx.slice(0, e.n).reverse()) me.hand.splice(k, 1); s.log.push(`🪙 J${i + 1} paga ${e.n} Doblón(es)`); e.fx.forEach(f => applyFx(s, i, f, src, tgt)); }
       break;
     }
-    case 'frostAll': foe.board.forEach(u => { u.ta -= atkOf(u); }); break;
-    case 'silence': { const t = tgt ?? strongest(foe.board); if (t && !coldBlooded(t)) t.kw = []; break; }
+    case 'extraer': { // Extracción genética (Psybernia): daño + le arrancas una palabra clave y la injertas en tu aliada más fuerte
+      const t = tgt ?? strongest(fb); if (!t) break;
+      if (e.n > 0) dealDamage(s, t, e.n);
+      const pool = t.kw.filter(k => !STATUS_KW.includes(k) && k !== 'skanuj'), g = strongest(me.board.filter(u => u !== t));
+      const k = PRIZE.find(x => pool.includes(x)) ?? pool[0];
+      if (k && g) { t.kw = t.kw.filter(x => x !== k); if (!g.kw.includes(k)) g.kw.push(k); s.log.push(`🧬 Extracción: {${g.card}} recibe ${k} injertado de {${t.card}}`); }
+      break;
+    }
+    case 'diseccion': { // Disección (Psybernia): si la unidad muere, tus Mutantes absorben su ADN
+      const t = tgt ?? strongest(fb);
+      if (t) {
+        const alive = curHp(t) > 0; dealDamage(s, t, e.n);
+        if (alive && curHp(t) <= 0) { const m = me.board.filter(u => u.kw.includes('mutante')); m.forEach(u => { u.atk += e.adn; u.hp += e.adn; }); if (m.length) s.log.push(`🧬 Disección: ${m.length} Mutante(s) absorben su ADN (+${e.adn}/+${e.adn})`); }
+      }
+      break;
+    }
+    case 'modificar': { // Modificación corporal (Psybernia): cambio permanente de poder y vida (la vida nunca baja de 1)
+      const t = tgt ?? strongest(me.board);
+      if (t) { t.atk = Math.max(0, t.atk + e.a); t.hp = Math.max(1, t.hp + e.h); const cap = t.hp + t.th + (t.fb ?? 0); if (t.dmg >= cap) t.dmg = cap - 1; }
+      break;
+    }
+    case 'tormenta': { // Tormenta de arena (Psybernia): ciega al rival y entierra a tus unidades
+      fb.forEach(u => { u.ta -= e.n; });
+      let n = 0; me.board.forEach(u => { if (!hidden(u)) { u.kw.push('soterrado'); n++; } });
+      s.log.push(`🏜 Tormenta de arena: las enemigas pierden ${e.n} de poder esta ronda${n ? ` y ${n} de tus unidades se entierran` : ''}`); break;
+    }
+    case 'purga': { // Purga del laboratorio (Psybernia): arrasa con todo lo que no sean Mutantes ni unidades enterradas
+      let n = 0;
+      for (const p of s.p) for (const u of p.board) if (!u.kw.includes('mutante') && !hidden(u)) { dealDamage(s, u, e.n); n++; }
+      s.log.push(`☢ Purga: ${n} unidad(es) sin mutar reciben ${e.n}`); break;
+    }
+    case 'frostAll': fb.forEach(u => { u.ta -= atkOf(u); }); break;
+    case 'silence': { const t = tgt ?? strongest(fb); if (t && !coldBlooded(t)) t.kw = []; break; }
     case 'gainMana': me.mana = Math.min(10, me.mana + e.n); break;
-    case 'destroyEnemy': { const t = tgt ?? strongest(foe.board); if (t) kill(t); break; }
+    case 'destroyEnemy': { const t = tgt ?? strongest(fb); if (t) kill(t); break; }
   }
   cleanup(s);
 }
@@ -351,9 +412,9 @@ export function canPlay(s: State, i: number, idx: number): boolean {
   const sp = c.speed ?? 'fast';
   if ((sp === 'slow' || sp === 'focus') && (s.phase !== 'main' || s.stack.length || s.attackers.length)) return false; // solo como acción original
   const k = targetKind(c.id);
-  if ((k === 'enemy' && !s.p[o(i)].board.length) || (k === 'ally' && !p.board.length)) return false;
+  if ((k === 'enemy' && !exposed(s.p[o(i)].board).length) || (k === 'ally' && !p.board.length)) return false;
   if (c.fx.some(e => e.t === 'sacDmg') && !p.board.length) return false;
-  if (c.fx.some(e => e.t === 'trueque') && (!p.board.length || !s.p[o(i)].board.length)) return false;
+  if (c.fx.some(e => e.t === 'trueque') && (!p.board.length || !exposed(s.p[o(i)].board).length)) return false;
   return true;
 }
 /** Tras un hechizo en fase de bloqueo: anula los bloqueos que ya no son legales (p. ej. el atacante ganó Elusivo). */
@@ -372,7 +433,7 @@ function resolveTop(s: State) {
   const c = CARDS[it.card], k = targetKind(it.card); let tgt: Unit | undefined;
   if (k) {
     tgt = [...s.p[0].board, ...s.p[1].board].find(u => u.uid === it.target);
-    if (!tgt) { s.log.push(`{${it.card}} se disipa: el objetivo ya no existe`); return; }
+    if (!tgt || (k === 'enemy' && hidden(tgt))) { s.log.push(`{${it.card}} se disipa: el objetivo ya no existe o se ha enterrado`); return; }
   }
   s.log.push(`Se resuelve {${it.card}}`);
   c.fx.forEach(e => applyFx(s, it.owner, e, undefined, tgt)); cleanup(s); checkWin(s);
@@ -388,6 +449,7 @@ function resolveCombat(s: State) {
   const at = s.token, df = o(at), A = s.p[at], D = s.p[df];
   const pairs = s.attackers.map(uid => A.board.find(u => u.uid === uid)).filter((u): u is Unit => !!u)
     .map(u => ({ u, had: s.blocks[String(u.uid)] !== undefined, b: D.board.find(x => x.uid === s.blocks[String(u.uid)]) }));
+  for (const { b } of pairs) if (b && hidden(b)) { b.kw = b.kw.filter(k => k !== 'soterrado'); s.log.push(`🏜 {${b.card}} emerge de la arena para bloquear`); }   // Soterrado: al bloquear, sale a la superficie
   const struck = new Set<number>(), nex = (u: Unit, n: number) => {
     if (n <= 0) return; hitNexus(s, df, n); if (u.kw.includes('robovida')) heal(s, at, n);
     if (u.kw.includes('saqueo')) { loot(s, at, 1); s.log.push('🪙 Saqueo: un Doblón a la mano de J' + (at + 1)); }
@@ -438,7 +500,7 @@ export function step(s0: State, a: Action): State {
     if (!canPlay(s, i, a.hand)) return s0;
     const id = p.hand[a.hand], c = CARDS[id], tk = targetKind(id);
     let tgt: Unit | undefined;
-    if (tk) { tgt = (tk === 'enemy' ? foe : p).board.find(u => u.uid === a.target); if (!tgt) return s0; }
+    if (tk) { tgt = (tk === 'enemy' ? foe : p).board.find(u => u.uid === a.target && (tk !== 'enemy' || !hidden(u))); if (!tgt) return s0; }
     if (c.type === 'unit') p.mana -= c.cost; else { const sm = Math.min(p.spell, c.cost); p.spell -= sm; p.mana -= c.cost - sm; }
     p.hand.splice(a.hand, 1); p.played.push(id);
     s.log.push(`J${i + 1} juega {${id}}`);
@@ -466,13 +528,15 @@ export function step(s0: State, a: Action): State {
     const force = (u: Unit, c: Unit) => { s.blocks[String(u.uid)] = c.uid; s.forced.push(u.uid); taken.add(c.uid); };
     const ret = atk.filter(u => u.kw.includes('retador'));
     for (const u of ret) { // Retador (1.ª pasada): respeta la elección del jugador
-      const pick = a.challenge?.[String(u.uid)], c = pick === undefined ? undefined : foe.board.find(x => x.uid === pick && !taken.has(x.uid) && canBlock(u, x));
+      const pick = a.challenge?.[String(u.uid)], c = pick === undefined ? undefined : foe.board.find(x => x.uid === pick && !taken.has(x.uid) && !hidden(x) && canBlock(u, x));
       if (c) force(u, c);
     }
     for (const u of ret) if (!s.forced.includes(u.uid)) { // 2.ª pasada: automático (el más débil al que puede matar, si no el de menos vida)
-      const c = foe.board.filter(x => !taken.has(x.uid) && canBlock(u, x)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
+      const c = foe.board.filter(x => !taken.has(x.uid) && !hidden(x) && canBlock(u, x)).sort((x, y) => (atkOf(u) >= curHp(y) ? 1 : 0) - (atkOf(u) >= curHp(x) ? 1 : 0) || curHp(x) - curHp(y))[0];
       if (c) force(u, c);
     }
+    // Soterrado (Psybernia): al atacar emerge de la arena y sorprende (+1 de poder esta ronda)
+    for (const u of atk) if (hidden(u)) { u.kw = u.kw.filter(k => k !== 'soterrado'); u.ta += AMBUSH; s.log.push(`🏜 Emboscada: {${u.card}} emerge de la arena (+${AMBUSH} de poder)`); }
     // Mando (Skaldrum): cada oficial que ataca da +1 de poder (esta ronda) al resto del asalto
     const officers = atk.filter(u => u.kw.includes('mando'));
     if (officers.length && atk.length > 1) { for (const m of officers) for (const x of atk) if (x !== m) x.ta += 1; s.log.push(`🎖 Mando: el asalto gana +${officers.length} de poder`); }

@@ -1,8 +1,8 @@
 import { CARDS } from '../data/cards';
-import { atkOf, canAttack, canBlock, canPlay, curHp, targetKind, tideOf } from '../engine/engine';
+import { atkOf, canAttack, canBlock, canPlay, curHp, exposed, hidden, targetKind, tideOf } from '../engine/engine';
 import type { Action, Effect, State, Unit } from '../engine/types';
 
-const dmgOf = (id: string) => CARDS[id].fx.reduce((a, e) => a + (e.t === 'dmgEnemy' || e.t === 'drain' || e.t === 'certero' ? e.n : e.t === 'avalancha' ? e.base : 0), 0);
+const dmgOf = (id: string) => CARDS[id].fx.reduce((a, e) => a + (e.t === 'dmgEnemy' || e.t === 'drain' || e.t === 'certero' || e.t === 'diseccion' ? e.n : e.t === 'avalancha' ? e.base : 0), 0);
 const rank = (u: Unit) => atkOf(u) * 10 + curHp(u);
 /** Efectos que de verdad se aplicarían hoy (Dominio, Marea y Paga dependen del estado). */
 function expand(s: State, i: number, fx: Effect[]): Effect[] {
@@ -17,12 +17,12 @@ function spellPlan(s: State, i: number): Action | null {
     const c = CARDS[id]; if (c.type !== 'spell' || !canPlay(s, i, k)) return;
     const tk = targetKind(id); let sc = 0, target: number | undefined;
     if (tk === 'enemy') {
-      const list = [...foe.board].sort((a, b) => rank(b) - rank(a)), d = dmgOf(id);
-      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'avalancha' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither' || e.t === 'virus') ? list[0] : undefined);
+      const list = exposed(foe.board).sort((a, b) => rank(b) - rank(a)), d = dmgOf(id);
+      const t = list.find(u => d > 0 && curHp(u) <= d) ?? (c.fx.some(e => e.t === 'destroyEnemy' || e.t === 'avalancha' || e.t === 'frost' || e.t === 'silence' || e.t === 'chicle' || e.t === 'wither' || e.t === 'virus' || e.t === 'extraer') ? list[0] : undefined);
       if (!t || (c.fx.some(e => e.t === 'sacDmg') && me.board.length < 2)) return;
       target = t.uid; sc = rank(t) / 2 + c.cost;
     } else if (tk === 'ally') {
-      const heals = c.fx.some(e => e.t === 'healUnit'), pool = heals ? me.board.filter(u => u.dmg > 0) : me.board;
+      const heals = c.fx.some(e => e.t === 'healUnit'), burrow = c.fx.some(e => e.t === 'giveKw' && e.kw === 'soterrado'), pool = heals ? me.board.filter(u => u.dmg > 0) : burrow ? me.board.filter(u => !hidden(u)) : me.board;
       const t = [...pool].sort((a, b) => (heals ? b.dmg - a.dmg : rank(b) - rank(a)))[0]; if (!t) return; target = t.uid; sc = heals ? 2 + t.dmg : 3;
     } else {
       if (id === 'bor_malware') sc += 2;   // purgar el virus de la mano
@@ -50,6 +50,8 @@ function spellPlan(s: State, i: number): Action | null {
         else if (e.t === 'peaje' && foe.mana >= e.n) sc += 2;
         else if (e.t === 'clone' && me.board.length >= 1 && me.board.length < 6) sc += 3;
         else if (e.t === 'fuse' && me.board.length >= 3) sc += 2;
+        else if (e.t === 'tormenta' && foe.board.length >= 1 && me.board.some(u => !hidden(u))) sc += s.tok[i] ? 4 : 2;
+        else if (e.t === 'purga') { const bad = (l: Unit[]) => l.filter(u => !u.kw.includes('mutante') && !hidden(u)).length; if (bad(foe.board) - bad(me.board) >= 2) sc += 4; }
         else if (e.t === 'tregua' && !s.peace && s.tok[1 - i] && foe.board.length > me.board.length) sc += 4;
         else if (e.t === 'gas' && !(s.gas ?? 0) && me.board.some(u => u.kw.includes('adaptado')) && foe.board.some(u => !u.kw.includes('adaptado'))) sc += 4;
       }

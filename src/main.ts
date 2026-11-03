@@ -7,13 +7,14 @@ import './boss.css';
 import './polish.css';
 import './premium.css';
 import './apx.css';
+import './hover3d.css';
 /* Sin arte (o con arte roto) no se muestra el icono de imagen rota: se oculta la imagen y queda el fondo/glifo */
 document.addEventListener('error', e => { const t = e.target; if (t instanceof HTMLImageElement) t.style.visibility = 'hidden'; }, true);
 import { hideMenu, initFx, showMenu } from './ui/fx';
 import { deckCards, deckFaction, deckLabel, getDeck, otherDeck, wireDeck } from './decks';
 import { CARDS, DECKS } from './data/cards';
 import { aiAction } from './ai/ai';
-import { applyEdge, atkOf, canAttack, canBlock, canPlay, curHp, newGame, step, targetKind } from './engine/engine';
+import { applyEdge, atkOf, canAttack, canBlock, canPlay, curHp, hidden, newGame, step, targetKind } from './engine/engine';
 import type { Action, Keyword, Player, SpellSpeed, State, Unit } from './engine/types';
 import { imageOf, nameOf } from './ui/skins';
 import { KWD, KWI, KWN, SPD, SPN } from './ui/keywords';
@@ -103,7 +104,7 @@ function rules(id: string, kws: Keyword[], hand = -1): string {
 }
 const NAT = new Set(['lms', 'arb', 'neg', 'bor', 'ska', 'mkv', 'tsk', 'psy', 'sin', 'ost', 'pon', 'krn', 'syl', 'dsj']);   // cartas de las naciones de la Aventura (ver nations.css)
 const artHTML = (id: string) => { const f = id.slice(0, 3);
-  return `<div class="art"><span class="glyph">${CARDS[id].type === 'spell' ? '✦' : f === 'lum' ? '☀' : '☾'}</span><img src="${imageOf(id)}" onerror="this.remove()"></div>`; };
+  return `<div class="art"><span class="glyph">${CARDS[id].type === 'spell' ? '✦' : f === 'lum' ? '☀' : '☾'}</span><img src="${imageOf(id)}" onerror="this.remove()"></div><img class="pop" alt="" src="${imageOf(id)}" onerror="this.remove()">`; };
 function card(id: string, attr = '', cls = '', u?: Unit, extra = ''): string {
   const c = CARDS[id], f = id.slice(0, 3), kws = u ? u.kw : c.kw, dmg = u && u.dmg > 0 ? 'dmg' : '';
   const kn = (c.type === 'spell' ? [SPN[c.speed ?? 'fast']] : []).concat(kws.map(k => KWN[k])).join(' · ');
@@ -136,7 +137,7 @@ function portrait(p: Player, i: number, label: string): string {
 }
 
 // ---------- Ataques con animación + informe ----------
-const chalTargets = (): Unit[] => { if (!chal) return []; const r = s.p[0].board.find(x => x.uid === chal!.queue[0]); return r ? s.p[1].board.filter(u => canBlock(r, u) && !Object.values(chal!.picks).includes(u.uid)) : []; };
+const chalTargets = (): Unit[] => { if (!chal) return []; const r = s.p[0].board.find(x => x.uid === chal!.queue[0]); return r ? s.p[1].board.filter(u => !hidden(u) && canBlock(r, u) && !Object.values(chal!.picks).includes(u.uid)) : []; };
 /** Quita de la cola los Retadores que ya no tienen enemigo elegible (el motor los resuelve solo). true = aún hay algo que elegir. */
 function chalNext(): boolean { while (chal && chal.queue.length && !chalTargets().length) chal.queue.shift(); return !!chal && chal.queue.length > 0; }
 let chal: { units: number[]; queue: number[]; picks: Record<string, number> } | null = null;  // Retador: el jugador elige qué enemigo bloquea
@@ -272,10 +273,10 @@ function render() {
   const unit = (u: Unit, i: number, side: number) => {
     const mine = side === 0, o = prevHp.get(u.uid), eff = curHp(u);
     let fx = '', fc = ''; if (o && s.round === lastRound) { if (eff < o[1]) { fc = 'hurt'; fx = String(eff - o[1]); } else if (eff > o[1] || atkOf(u) > o[0]) { fc = 'boost'; fx = '+' + (eff > o[1] ? eff - o[1] : atkOf(u) - o[0]); } }
-    const valid = tgt && ((tgt.kind === 'enemy' && !mine) || (tgt.kind === 'ally' && mine));
+    const valid = tgt && ((tgt.kind === 'enemy' && !mine && !hidden(u)) || (tgt.kind === 'ally' && mine));
     const a = chal && !mine && chalTargets().includes(u) ? 'chal' : valid ? 'tgt' : mine ? 'unit' : defMe && atkSet.has(u.uid) ? 'enemy-unit' : 'view';
     const can = mine && myTurn && s.phase === 'main' && s.tok[0] && !s.attackers.length && !s.peace && canAttack(u);
-    const cls = `mini ${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${mine && heldBlk === i && s.phase === 'block' ? 'sel ' : ''}${chal && !mine && Object.values(chal.picks).includes(u.uid) ? 'forced ' : ''}${chal && !mine && chalTargets().includes(u) ? 'tgtok ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
+    const cls = `mini ${hidden(u) ? 'buried ' : ''}${sel.has(i) && mine ? 'sel ' : ''}${can ? 'can ' : ''}${seen.has(u.uid) ? '' : 'enter '}${fc} ${valid ? 'tgtok ' : ''}${!mine && selAtk === i ? 'blocktarget ' : ''}${mine && blockers.has(u.uid) ? 'assignedblock ' : ''}${mine && heldBlk === i && s.phase === 'block' ? 'sel ' : ''}${chal && !mine && Object.values(chal.picks).includes(u.uid) ? 'forced ' : ''}${chal && !mine && chalTargets().includes(u) ? 'tgtok ' : ''}${s.forced.includes(u.uid) || (s.forced.some(f => s.blocks[String(f)] === u.uid)) ? 'forced ' : ''}${atkSet.has(u.uid) ? 'atkr ' : ''}${pend && pend.side === side && pend.idx.includes(i) ? 'attacking ' + (side ? 'down' : 'up') : ''}${duel && u.uid === duel.atk ? 'duel duelatk ' + (duel.fly ? 'fly ' : '') : duel && u.uid === duel.blk ? 'duel duelblk ' : ''}`;
     return card(u.card, `data-u="${side}:${i}" data-a="${a}" data-i="${i}" data-uid="${u.uid}" data-c="${u.card}"`, cls, u, fx ? `<span class="fx">${fx}</span>` : '');
   };
   const lanes = (p: Player, side: number) => {

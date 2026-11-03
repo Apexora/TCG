@@ -1,7 +1,7 @@
 import type { CardDef, Effect, Keyword, SpellSpeed } from '../engine/types';
 // Segunda tanda de naciones de la Aventura. Prefijo de 3 letras = nación (también es la clase CSS de la carta).
 // Cada nación trae una palabra clave y un efecto propios (ver engine.ts):
-//   Psybernia → Mutante + Fusión · Sinfalía → Don + Tregua · Ostraca → Leal + Clonar · Pongí → Estilo + Chicle (Pegada)
+//   Psybernia → Mutante (mutación aleatoria) + Soterrado + Metástasis + Fusión/Extracción · Sinfalía → Don + Tregua · Ostraca → Leal + Clonar · Pongí → Estilo + Chicle (Pegada)
 //   Krahn → Cerrojo + Peaje · Sylvaris → Raíz + Poda · Disnjav → Adaptado + Gas tóxico
 const U = (id: string, name: string, cost: number, atk: number, hp: number, kw: Keyword[] = [], text = '', fx: Effect[] = [], grow?: { a: number; h: number }): CardDef =>
   ({ id, name, cost, type: 'unit', atk, hp, kw, text, fx, grow });
@@ -11,36 +11,42 @@ const S = (id: string, name: string, cost: number, speed: SpellSpeed, text: stri
 const T = (id: string, name: string, atk: number, hp: number, kw: Keyword[] = [], text = ''): CardDef =>
   ({ id, name, cost: 0, type: 'unit', atk, hp, kw, text, fx: [], token: true });
 const sum = (card: string, n: number): Effect => ({ t: 'summon', card, n });
-const FUSE = 'Al jugarla: sacrifica a tu aliada más débil y absorbe sus estadísticas.';
 
-/** PSYBERNIA: nación sometida bajo la arena; sus habitantes son experimentos deformes.
- *  Mutante: +2 de poder y -1 de vida permanentes al cerrar cada ronda (explotan de fuerza y se deterioran). Fusión: se sacrifica a la más débil y se absorbe. */
+/** PSYBERNIA: nación sometida bajo la arena; sus habitantes son experimentos deformes, criados en laboratorios subterráneos del desierto.
+ *  Mecánicas propias (ver engine.ts):
+ *   · Mutante: al cerrar cada ronda sufre una mutación ALEATORIA y permanente (+2 poder, +2 vida, una palabra clave nueva… o un defecto de −1/−1).
+ *   · Soterrado: nace enterrada bajo la arena; ningún hechizo ni efecto rival puede elegirla. Emerge al atacar (+1 de poder, Emboscada) o al bloquear.
+ *   · Metástasis: al morir, brotan Engendros de sus restos.
+ *   · Fusión: sacrifica a la aliada más débil y absorbe sus estadísticas Y su genoma (palabras clave).
+ *   · Extracción: arranca una palabra clave a una enemiga y la injerta en tu aliada más fuerte. Disección: si la víctima muere, tus Mutantes absorben su ADN.
+ *   · Modificación corporal (Amputación), Tormenta de Arena (entierra a los tuyos y ciega al rival) y Purga (arrasa lo que no ha mutado). */
+const FUSE_TXT = 'Al jugarla: sacrifica a tu aliada más débil; absorbe sus estadísticas y sus palabras clave.';
 export const PSYBERNIA: CardDef[] = [
   U('psy_larva', 'Larva Inestable', 1, 1, 3, ['mutante']),
-  U('psy_resto', 'Resto de Probeta', 1, 2, 1),
-  U('psy_gusano', 'Gusano de las Dunas', 2, 2, 2, ['elusivo']),
+  U('psy_resto', 'Resto de Probeta', 1, 1, 1, ['metastasis']),
+  U('psy_gusano', 'Gusano de las Dunas', 2, 2, 2, ['soterrado']),
   U('psy_carcelero', 'Guardián de Celda', 2, 1, 4, ['duro']),
-  U('psy_cobaya', 'Cobaya Mutada', 2, 2, 3, ['mutante']),
-  U('psy_quimera', 'Quimera Fallida', 3, 3, 3, [], FUSE, [{ t: 'fuse' }]),
-  U('psy_segador', 'Segador de Arena', 3, 3, 2, ['rapido']),
-  U('psy_aborto', 'Sujeto Deforme', 3, 2, 4, ['regenera']),
-  U('psy_reptante', 'Reptante del Cráter', 3, 2, 3, ['veneno']),
-  U('psy_amalgama', 'Amalgama Carnal', 4, 3, 5, ['mutante']),
-  U('psy_hibrido', 'Híbrido Letal', 4, 3, 3, ['letal']),
-  U('psy_abominacion', 'Abominación', 5, 5, 5, ['duro']),
-  U('psy_hidra', 'Hidra Sintética', 5, 3, 5, ['regenera'], FUSE, [{ t: 'fuse' }]),
-  U('psy_coloso', 'Coloso Quimérico', 6, 5, 6, ['mutante', 'arrollar']),
-  U('psy_valeria', 'Valeria, la Creadora', 7, 5, 7, ['mutante', 'duro'], 'Al jugarla: invoca 2 Engendros.', [sum('psy_engendro', 2)]),
-  S('psy_bisturi', 'Bisturí Oxidado', 1, 'burst', 'Inflige 2 a una unidad enemiga.', [{ t: 'dmgEnemy', n: 2 }]),
+  U('psy_cobaya', 'Cobaya Mutada', 2, 2, 2, ['mutante']),
+  U('psy_quimera', 'Quimera Fallida', 3, 3, 3, [], FUSE_TXT, [{ t: 'fuse' }]),
+  U('psy_segador', 'Segador de Arena', 3, 2, 3, ['soterrado', 'rapido']),
+  U('psy_aborto', 'Sujeto Deforme', 3, 2, 4, ['metastasis']),
+  U('psy_reptante', 'Reptante del Cráter', 3, 2, 3, ['soterrado', 'veneno']),
+  U('psy_amalgama', 'Amalgama Carnal', 4, 3, 5, ['mutante', 'metastasis']),
+  U('psy_hibrido', 'Híbrido Letal', 4, 3, 3, ['soterrado', 'letal']),
+  U('psy_abominacion', 'Abominación', 5, 4, 5, ['duro', 'metastasis']),
+  U('psy_hidra', 'Hidra Sintética', 5, 3, 5, ['regenera'], FUSE_TXT, [{ t: 'fuse' }]),
+  U('psy_coloso', 'Coloso Quimérico', 6, 4, 6, ['mutante', 'arrollar']),
+  U('psy_valeria', 'Valeria, la Creadora', 7, 4, 7, ['mutante', 'duro'], 'Al jugarla: invoca 2 Engendros.', [sum('psy_engendro', 2)]),
+  S('psy_bisturi', 'Bisturí Oxidado', 1, 'burst', 'Inflige 1 a una unidad enemiga y le arranca una palabra clave: la injertas en tu aliada más fuerte.', [{ t: 'extraer', n: 1 }]),
   S('psy_suero', 'Suero Inestable', 2, 'fast', 'Una aliada gana +1/+1 y Mutante.', [{ t: 'buffAlly', a: 1, h: 1 }, { t: 'giveKw', kw: 'mutante' }]),
-  S('psy_inyeccion', 'Inyección de Arena', 2, 'fast', 'Una aliada gana +3/+0 esta ronda.', [{ t: 'tempBuff', a: 3, h: 0 }]),
-  S('psy_quirofano', 'Quirófano Clandestino', 2, 'focus', 'Roba 2 cartas. Tu Nexo recibe 2.', [{ t: 'draw', n: 2 }, { t: 'hurtNexus', n: 2 }]),
-  S('psy_disecar', 'Disección', 3, 'fast', 'Inflige 3 a una enemiga y cura 3 a tu Nexo.', [{ t: 'drain', n: 3 }]),
-  S('psy_amputar', 'Amputación', 3, 'slow', 'Sacrifica tu unidad más débil; daña a una enemiga igual a su ataque.', [{ t: 'sacDmg' }]),
-  S('psy_fusion', 'Fusión Forzada', 3, 'slow', 'Sacrifica tu unidad más débil; tu unidad más fuerte absorbe sus estadísticas.', [{ t: 'fuse' }]),
+  S('psy_inyeccion', 'Cavar Madriguera', 1, 'burst', 'Una aliada se entierra (Soterrado): ningún hechizo rival puede elegirla. Sirve para salvarla en respuesta.', [{ t: 'giveKw', kw: 'soterrado' }]),
+  S('psy_quirofano', 'Quirófano Clandestino', 3, 'focus', 'Una aliada gana +2/+2 y Metástasis. Tu Nexo recibe 2.', [{ t: 'buffAlly', a: 2, h: 2 }, { t: 'giveKw', kw: 'metastasis' }, { t: 'hurtNexus', n: 2 }]),
+  S('psy_disecar', 'Disección', 2, 'fast', 'Inflige 3 a una enemiga. Si muere, tus Mutantes absorben su ADN: +1/+1 permanente.', [{ t: 'diseccion', n: 3, adn: 1 }]),
+  S('psy_amputar', 'Amputación', 2, 'fast', 'Una aliada gana +3 de poder y pierde 1 de vida para siempre (nunca baja de 1).', [{ t: 'modificar', a: 3, h: -1 }]),
+  S('psy_fusion', 'Fusión Forzada', 3, 'slow', 'Sacrifica tu unidad más débil; tu unidad más fuerte absorbe sus estadísticas y sus palabras clave.', [{ t: 'fuse' }]),
   S('psy_cria', 'Cámara de Cría', 3, 'slow', 'Invoca 2 Engendros.', [sum('psy_engendro', 2)]),
-  S('psy_arena', 'Tormenta de Arena', 4, 'fast', 'Las unidades enemigas tienen 0 de poder esta ronda.', [{ t: 'frostAll' }]),
-  S('psy_purga', 'Purga del Laboratorio', 5, 'slow', 'Inflige 3 a todas las unidades enemigas.', [{ t: 'dmgAll', n: 3 }]),
+  S('psy_arena', 'Tormenta de Arena', 5, 'slow', 'Las unidades enemigas pierden 2 de poder esta ronda. Todas tus unidades se entierran (Soterrado).', [{ t: 'tormenta', n: 2 }]),
+  S('psy_purga', 'Purga del Laboratorio', 5, 'slow', 'Inflige 4 a TODAS las unidades que no sean Mutantes ni estén Soterradas (también las tuyas).', [{ t: 'purga', n: 4 }]),
   T('psy_engendro', 'Engendro', 1, 2, ['mutante'], 'Ficha.'),
 ];
 

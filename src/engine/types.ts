@@ -10,7 +10,9 @@ export type Keyword = 'barrera' | 'robovida' | 'arrollar' | 'letal' | 'rapido' |
   // Markivton (piratas sin gobierno): saqueo (golpes al Nexo = Doblones), marea (cambia según la ronda) y andanada (cañonea al cerrar la ronda si no atacó)
   | 'saqueo' | 'marea' | 'andanada'
   // Tribus Skaldrak (clanes de las montañas heladas): glacial (levanta el Glaciar), skanuj (raza de piel azul, hecha al frío) y madura (la cría evoluciona)
-  | 'glacial' | 'skanuj' | 'madura';
+  | 'glacial' | 'skanuj' | 'madura'
+  // Psybernia (experimentos bajo la arena): soterrado (enterrada: intocable por hechizos hasta que actúa) y metastasis (al morir deja Engendros)
+  | 'soterrado' | 'metastasis';
 /** Velocidades de hechizo (burst/focus se resuelven al instante sin pasar prioridad; fast/slow van a la pila. */
 export type SpellSpeed = 'burst' | 'focus' | 'fast' | 'slow';
 export type Effect =
@@ -44,7 +46,13 @@ export type Effect =
   | { t: 'glaciar'; n: number }                   // +n de Glaciar (máx. 6)
   | { t: 'avalancha'; base: number; max: number } // daño a una enemiga: base + el Glaciar que gastes (hasta max)
   | { t: 'alud'; base: number; max: number }      // daño a TODAS las enemigas: base + la mitad del Glaciar que gastes (hasta max)
-  | { t: 'buffSkanuj'; a: number; h: number };    // +a/+h permanentes a tus unidades Skanuj
+  | { t: 'buffSkanuj'; a: number; h: number }
+  // Psybernia: experimentación genética y modificación corporal
+  | { t: 'extraer'; n: number }                   // Extracción: n de daño a una enemiga y le arrancas una palabra clave, que injertas en tu aliada más fuerte
+  | { t: 'diseccion'; n: number; adn: number }    // Disección: n de daño; si la unidad muere, tus Mutantes absorben su ADN (+adn/+adn permanentes)
+  | { t: 'modificar'; a: number; h: number }      // Modificación corporal: cambia permanentemente poder y vida de una aliada (la vida nunca baja de 1)
+  | { t: 'tormenta'; n: number }                  // Tormenta de arena: las enemigas pierden n de poder esta ronda y tus unidades se entierran (Soterrado)
+  | { t: 'purga'; n: number };                    // Purga: n de daño a TODAS las unidades que no sean Mutantes ni Soterradas (de ambos bandos)    // +a/+h permanentes a tus unidades Skanuj
 export interface CardDef { id: string; name: string; cost: number; type: 'unit' | 'spell'; atk: number; hp: number; kw: Keyword[]; text: string; fx: Effect[]; grow?: { a: number; h: number }; speed?: SpellSpeed; token?: boolean;
   /** Madura (Skaldrak): carta en la que se transforma al cerrar la ronda si sigue en juego. */ evolve?: string }
 /** ta/th: bonos temporales de la ronda (se revierten al final). */

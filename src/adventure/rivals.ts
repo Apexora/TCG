@@ -107,7 +107,7 @@ export const NATIONS: Record<string, Nation> = {
     N('pin', 'Pin', 4, 'tsk', 'Magia de hielo', ['chaman:2', 'hechicera:2', 'dragon:2', 'aliento:2', 'ventiscaz:2', 'prision:2', 'lanza:2', 'guardian:2', 'aprendiz:2', 'ventisca:2', 'escarcha']),
     N('sabio-skanuj', 'Sabio Skanuj', 5, 'tsk', 'La tormenta del Sabio', ['sabio', 'dragon', 'hechicera', 'anciano', 'mamut', 'ventiscaz', 'prision', 'aurora', 'lanza:2', 'yeti', 'guerrera:2', 'jefe:2', 'manada:2', 'aliento:2', 'cantor:2', 'hermano:2', 'cachorro:2', 'lobo:2'], { boss: true })] },
   // ---- Segunda tanda: cada nación con su propia mecánica (ver src/data/nations2.ts) ----
-  // Psybernia · Mutante (+2 poder / -1 vida cada ronda) y Fusión
+  // Psybernia · Mutante (mutación aleatoria), Soterrado (enterrada), Metástasis, Fusión y Extracción genética
   psybernia: { id: 'psybernia', name: 'Psybernia', rivals: [
     N('ps-01', 'PS-01', 1, 'psy', 'Sujeto de prueba · mutantes inestables', ['larva:2', 'cobaya:2', 'resto:2', 'gusano:2', 'carcelero:2', 'bisturi:2', 'suero:2', 'inyeccion:2', 'quimera', 'aborto']),
     N('pm-05', 'PM-05', 2, 'psy', 'Fusiones deformes', ['quimera:2', 'fusion:2', 'aborto:2', 'gusano:2', 'cobaya:2', 'carcelero:2', 'disecar:2', 'amputar', 'segador:2', 'hibrido', 'suero']),
@@ -155,7 +155,7 @@ export const NATIONS: Record<string, Nation> = {
     N('bg', 'Bg', 5, 'dsj', 'Madre del aire irrespirable', ['madre', 'leviatan:2', 'alfa:2', 'behemot:2', 'hidra:2', 'quimico:2', 'recolector:2', 'tormenta:2', 'colapso:2', 'asfixia:2', 'fuga:2', 'nube:2', 'mascara', 'generacion:2', 'hongo:2', 'antidoto'], { boss: true })] },
 };
 /** Naciones jugables por ahora. El resto sigue definido en NATIONS pero aparece como "Próximamente". Para abrir una, añádela aquí. */
-export const PLAYABLE = ['arboris', 'lumis', 'umbra', 'luminarae', 'negatt', 'boro', 'skaldrum', 'markivton', 'tribus'];
+export const PLAYABLE = ['arboris', 'lumis', 'umbra', 'luminarae', 'negatt', 'boro', 'skaldrum', 'markivton', 'tribus', 'psybernia'];
 export const faction = (r: Rival) => (r.deck.filter(i => i.startsWith('umb')).length > r.deck.length / 2 ? 'Umbra' : 'Luminarae');
 
 // ---------- Progreso (en este navegador) ----------

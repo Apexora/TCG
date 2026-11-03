@@ -1,6 +1,6 @@
 declare const process: { exit(n: number): never };
 import { DECKS } from '../data/cards';
-import { atkOf, canAttack, canBlock, newGame, step } from '../engine/engine';
+import { atkOf, canAttack, canBlock, canPlay, newGame, step } from '../engine/engine';
 import type { State, Unit } from '../engine/types';
 let fails = 0; const ok = (c: boolean, m: string) => { if (!c) { fails++; console.log('✗ ' + m); } };
 const U = (uid: number, card: string, atk: number, hp: number, kw: Unit['kw'] = []): Unit => ({ uid, card, atk, hp, dmg: 0, kw, ta: 0, th: 0 });
@@ -30,9 +30,76 @@ ok(atkOf(U(1, 'x', 2, 2)) === 2, 'poder base');
 {
 const endRound = (g: State): State => { let x = g; for (let k = 0; k < 2; k++) x = step(x, { type: 'pass' }); return x; };
 const mine = (g: State) => g.p[g.token];
-// Mutante: +2 de poder y -1 de vida permanentes al cerrar la ronda; muere al llegar a 0 de vida
-let m = fresh(); const mt = m.token; mine(m).board = [U(1, 'psy_cobaya', 2, 3, ['mutante']), U(2, 'psy_larva', 1, 1, ['mutante'])];
-m = endRound(m); ok(m.p[mt].board.length === 1 && m.p[mt].board[0].atk === 4 && m.p[mt].board[0].hp === 2, 'Mutante: +2/-1 al cerrar la ronda y muere con 0 de vida');
+// Mutante (Psybernia): al cerrar la ronda sufre una mutación aleatoria y permanente (nunca muere por ella)
+{
+  let changed = 0, alive = 0, runs = 40;
+  for (let k = 0; k < runs; k++) {
+    let m = fresh(); m.seed = 1000 + k; const mt = m.token; mine(m).board = [U(1, 'psy_cobaya', 2, 2, ['mutante'])];
+    m = endRound(m); const u = m.p[mt].board[0];
+    if (u) { alive++; if (u.atk !== 2 || u.hp !== 2 || u.kw.length > 1) changed++; }
+  }
+  ok(alive === runs && changed >= runs - 1, 'Mutante: siempre muta al cerrar la ronda y nunca muere por la mutación');
+  const seen = new Set<string>();
+  for (let k = 0; k < 60; k++) { let m = fresh(); m.seed = 50 + k; const mt = m.token; mine(m).board = [U(1, 'psy_cobaya', 2, 2, ['mutante'])]; m = endRound(m); const u = m.p[mt].board[0]; seen.add(u.atk === 4 ? 'atk' : u.hp === 4 ? 'hp' : u.atk === 1 ? 'bad' : u.kw.length > 1 ? 'kw' : 'x'); }
+  ok(['atk', 'hp', 'bad', 'kw'].every(k => seen.has(k)), 'Mutante: aparecen las 4 mutaciones (poder, vida, palabra clave, defecto)');
+  let a = fresh(); a.seed = 7; const at = a.token; mine(a).board = [U(1, 'psy_cobaya', 2, 2, ['mutante'])]; let b = structuredClone(a);
+  a = endRound(a); b = endRound(b); ok(JSON.stringify(a.p[at].board) === JSON.stringify(b.p[at].board), 'Mutante: es determinista con la misma semilla (online)');
+}
+// Soterrado: intocable por hechizos; emerge al atacar (+1) y al bloquear
+{
+  let g = fresh(); const me = g.token, foe = 1 - me;
+  g.p[foe].board = [U(1, 'psy_gusano', 2, 2, ['soterrado'])]; mine(g).hand = ['psy_bisturi']; mine(g).mana = 5; g.active = me;
+  ok(!canPlay(g, me, 0), 'Soterrado: un hechizo enemigo no puede elegir a una unidad enterrada');
+  g.p[foe].board.push(U(2, 'umb_sombra', 2, 2)); ok(canPlay(g, me, 0), 'Soterrado: con otro objetivo visible sí se puede lanzar');
+  const t0 = step(g, { type: 'play', hand: 0, target: 1 }); ok(t0 === g, 'Soterrado: elegir como objetivo a la enterrada es ilegal');
+  let d = fresh(); d.p[1 - d.token].board = [U(1, 'umb_sombra', 3, 3), U(2, 'psy_gusano', 2, 2, ['soterrado'])]; mine(d).hand = ['psy_purga'];
+  mine(d).board = [U(3, 'umb_sombra', 5, 4)]; mine(d).mana = 10; d.active = d.token;
+  d = step(d, { type: 'play', hand: 0 }); d = step(d, { type: 'pass' });
+  const fb = d.p[1 - d.token].board; ok(fb.find(u => u.uid === 2)?.dmg === 0 && !fb.find(u => u.uid === 1) && !mine(d).board.length, 'Purga: arrasa lo no mutado pero no toca a las enterradas');
+  let a = fresh(); const at = a.token; mine(a).board = [U(1, 'psy_gusano', 2, 2, ['soterrado'])]; a.p[1 - at].board = [U(2, 'umb_sombra', 2, 5)];
+  a = step(a, { type: 'attack', units: [0] }); const u = a.p[at].board[0];
+  ok(!u.kw.includes('soterrado') && atkOf(u) === 3, 'Soterrado: al atacar emerge con +1 de poder (Emboscada)');
+  let bk = fresh(); const bt = bk.token; mine(bk).board = [U(1, 'umb_sombra', 2, 2)]; bk.p[1 - bt].board = [U(2, 'psy_gusano', 2, 3, ['soterrado'])];
+  bk = step(bk, { type: 'attack', units: [0] }); bk = step(bk, { type: 'block', attacker: 0, blocker: 0 }); bk = step(bk, { type: 'confirmBlocks' }); bk = step(bk, { type: 'pass' });
+  ok(!bk.p[1 - bt].board[0].kw.includes('soterrado'), 'Soterrado: al bloquear sale a la superficie');
+  let c = fresh(); const ct = c.token; mine(c).board = [U(1, 'umb_sombra', 2, 2)]; mine(c).hand = ['psy_inyeccion']; mine(c).mana = 3; c.active = ct;
+  c = step(c, { type: 'play', hand: 0, target: 1 }); ok(mine(c).board[0].kw.includes('soterrado'), 'Cavar Madriguera: entierra a una aliada (ráfaga)');
+}
+// Metástasis: al morir deja un Engendro
+{
+  let m = fresh(); const mt = m.token; mine(m).board = [U(1, 'psy_resto', 1, 1, ['metastasis'])]; mine(m).board[0].dmg = 5;
+  m = step(m, { type: 'pass' }); m = step(m, { type: 'pass' });
+  ok(m.p[mt].board.some(u => u.card === 'psy_engendro') && !m.p[mt].board.some(u => u.card === 'psy_resto'), 'Metástasis: al morir brota un Engendro');
+}
+// Fusión: absorbe estadísticas Y palabras clave
+{
+  let f = fresh(); const ft = f.token; f.p[ft].board = [U(1, 'umb_sombra', 2, 1, ['letal'])]; f.p[ft].hand = ['psy_quimera'];
+  f = step(f, { type: 'play', hand: 0 }); const q = f.p[ft].board[0];
+  ok(f.p[ft].board.length === 1 && q.atk === 5 && q.hp === 4 && q.kw.includes('letal'), 'Fusión: absorbe estadísticas y palabras clave');
+}
+// Extracción genética: daño + arranca la palabra clave y la injerta
+{
+  let x = fresh(); const xt = x.token; mine(x).board = [U(1, 'umb_sombra', 2, 2)]; x.p[1 - xt].board = [U(2, 'umb_sombra', 3, 3, ['letal', 'duro'])];
+  mine(x).hand = ['psy_bisturi']; mine(x).mana = 3; x.active = xt;
+  x = step(x, { type: 'play', hand: 0, target: 2 });
+  ok(mine(x).board[0].kw.includes('letal') && !x.p[1 - xt].board[0].kw.includes('letal') && x.p[1 - xt].board[0].kw.includes('duro'), 'Extracción: roba la palabra clave más valiosa');
+}
+// Disección: si la víctima muere, los Mutantes absorben su ADN
+{
+  let x = fresh(); const xt = x.token; mine(x).board = [U(1, 'psy_cobaya', 2, 2, ['mutante'])]; x.p[1 - xt].board = [U(2, 'umb_sombra', 1, 2)];
+  mine(x).hand = ['psy_disecar']; mine(x).mana = 3; x.active = xt;
+  x = step(x, { type: 'play', hand: 0, target: 2 }); x = step(x, { type: 'pass' });
+  ok(!x.p[1 - xt].board.length && mine(x).board[0].atk === 3 && mine(x).board[0].hp === 3, 'Disección: el Mutante absorbe el ADN de la víctima');
+}
+// Amputación: +3 de poder, -1 de vida, sin matar; Tormenta de arena: -2 enemigas y entierra a las propias
+{
+  let x = fresh(); const xt = x.token; mine(x).board = [U(1, 'umb_sombra', 2, 1)]; mine(x).hand = ['psy_amputar']; mine(x).mana = 3; x.active = xt;
+  x = step(x, { type: 'play', hand: 0, target: 1 }); x = step(x, { type: 'pass' });
+  ok(mine(x).board[0].atk === 5 && mine(x).board[0].hp === 1, 'Amputación: +3 de poder y la vida no baja de 1');
+  let y = fresh(); const yt = y.token; mine(y).board = [U(1, 'umb_sombra', 2, 2)]; y.p[1 - yt].board = [U(2, 'umb_sombra', 4, 4)]; mine(y).hand = ['psy_arena']; mine(y).mana = 5; y.active = yt;
+  y = step(y, { type: 'play', hand: 0 }); y = step(y, { type: 'pass' });
+  ok(atkOf(y.p[1 - yt].board[0]) === 2 && mine(y).board[0].kw.includes('soterrado'), 'Tormenta de Arena: -2 de poder al rival y entierra a las tuyas');
+}
 // Don: al morir, las demás aliadas ganan +1/+1
 let d = fresh(); mine(d).board = [U(1, 'sin_cantor', 1, 2, ['don']), U(2, 'sin_panadero', 2, 2)]; d.p[d.token].board[0].dmg = 5;
 d = step(d, { type: 'pass' }); d = step(d, { type: 'pass' });
@@ -46,10 +113,6 @@ let c = fresh(); const ct = c.token; c.p[ct].board = [U(1, 'umb_titan', 7, 7, ['
 c = step(c, { type: 'play', hand: 0 });
 const cl = c.p[ct].board.find(u => u.uid !== 1 && u.card === 'umb_titan');
 ok(!!cl && cl.atk === 4 && cl.hp === 4 && cl.kw.includes('regenera'), 'Clonar: copia 4/4 de la más fuerte');
-// Fusión: sacrifica a la más débil y absorbe sus estadísticas
-let f = fresh(); const ft = f.token; f.p[ft].board = [U(1, 'umb_sombra', 2, 1)]; f.p[ft].hand = ['psy_quimera'];
-f = step(f, { type: 'play', hand: 0 });
-ok(f.p[ft].board.length === 1 && f.p[ft].board[0].card === 'psy_quimera' && f.p[ft].board[0].atk === 5 && f.p[ft].board[0].hp === 4, 'Fusión: absorbe a la más débil');
 // Tregua: nadie puede atacar esa ronda; se levanta al cerrar la ronda
 let t = fresh(); const tt = t.token; mine(t).board = [U(1, 'umb_sombra', 2, 2)]; t.p[tt].hand = ['sin_tregua'];
 t = step(t, { type: 'play', hand: 0 }); t = step(t, { type: 'pass' });   // la pila se resuelve
